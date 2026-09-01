@@ -1,22 +1,29 @@
 function fit = fitCal(intensitiesStim,amplitudesWaves)
-%FITCAL Fit M- & H-wave recruitment curves
-%   This function accepts the stimulation intensities and H- and M-wave
-% amplitudes for the right and left legs as input and fits a modified
-% hyperbolic function to the M-wave data (equation 1) and an asymmetric
-% Gaussian to the H-wave data (modified from equation 2) based on the
-% Brinkworth et al. (J. Neurosci. Methods, 2007) paper (Section 2.4 Curve
-% Fitting).
+%FITCAL Fit M- and H-wave recruitment curves.
 %
-% input(s):
-%   intensitiesStim: 2 x 1 cell array of number of stimuli x 1 arrays for
-%       right (cell 1) and left (cell 2) leg stimulation amplitudes (i.e.,
-%       intensity of the constant current stimulation pulse in mA)
-%   amplitudesWaves: 2 x 2 cell array of number of stimuli x 1 arrays for
-%       right (row 1) and left (row 2) leg H-reflex amplitudes: M-wave
-%       (column 1), H-wave (column 2)
-% output(s):
-%   fit: structure of M-wave and H-wave fit function, optimized parameters,
-%       and maximum fit M value for normalization
+%   Accept stimulation intensities and H- and M-wave amplitudes for the
+% right and left legs and fit a modified hyperbolic function to the M-wave
+% data (equation 1) and an asymmetric Gaussian to the H-wave data
+% (modified from equation 2), based on Brinkworth et al.
+% (J. Neurosci. Methods, 2007), Section 2.4 Curve Fitting.
+%
+% Inputs:
+%   intensitiesStim - 2 x 1 cell of number of stimuli x 1 arrays for
+%                     right (cell 1) and left (cell 2) leg stimulation
+%                     amplitudes in mA
+%   amplitudesWaves - 2 x 2 cell of number of stimuli x 1 arrays for
+%                     right (row 1) and left (row 2) leg H-reflex
+%                     amplitudes: M-wave (col 1), H-wave (col 2)
+%
+% Outputs:
+%   fit - struct of M-wave and H-wave fit function, optimized parameters,
+%         and maximum fit M value for normalization
+%
+% Toolbox Dependencies:
+%   Statistics and Machine Learning Toolbox (nlinfit)
+%   Signal Processing Toolbox (findpeaks)
+%
+% See also HREFLEX.PLOTCAL, GENERATEHREFLEXRECRUITMENTCURVES.
 
 % TODO:
 %   1. compare fits using only the averages at each intensity with all data
@@ -104,7 +111,27 @@ end
 end
 
 function [R2,AIC,BIC] = computeFitQuality(intensities,amps,func,params)
-% helper function to compute goodness-of-fit metrics
+%% Helper Functions
+
+%COMPUTEFITQUALITY Compute goodness-of-fit metrics for a recruitment curve.
+%
+%   Compute R-squared, Akaike information criterion (AIC), and Bayesian
+% information criterion (BIC) for a fitted recruitment curve model.
+%
+% Inputs:
+%   intensities - number of data points x 1 array of stimulation
+%                 intensities (mA)
+%   amps        - number of data points x 1 array of wave amplitudes (mV)
+%   func        - function handle for the model: func(params, intensities)
+%   params      - 1 x numParams vector of fitted model parameters
+%
+% Outputs:
+%   R2  - coefficient of determination
+%   AIC - Akaike information criterion
+%   BIC - Bayesian information criterion
+%
+% Toolbox Dependencies:
+%   None
 
 numParams = numel(params);                      % number of parameters
 numPnts = numel(amps);                          % number of data points

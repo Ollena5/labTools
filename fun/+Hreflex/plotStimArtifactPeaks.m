@@ -1,25 +1,45 @@
 function fig = plotStimArtifactPeaks(times,rawEMG_TAP,indsPeaks,id, ...
     trialNum,varargin)
-%PLOTSTIMARTIFACTPEAKS Plot stimulation artifact peaks in proximal TA
-%   Plot the H-reflex raw EMG traces for the proximal tibialis anterior
-% muscle with the identified stimulation artifact peaks highlighted with a
-% filled in triangle to verify that the indices found for the peaks are
-% correct for later H-reflex alignment and analysis.
+%PLOTSTIMARTIFACTPEAKS Plot located stimulation artifact peaks in EMG.
 %
-% input:
-%   times: number of samples x 1 array with the time in seconds from the
-%       start of the trial for each sample
-%   rawEMG_TAP: 2 x 1 cell array of number of samples x 1 arrays for right
-%       (cell 1) and left (cell 2) leg proximal TA muscle EMG signal (NOTE:
-%       if one cell is input as empty array, that leg will not be plot)
-%   indsPeaks: 2 x 1 cell array of number of peaks x 1 arrays of the
-%       stimulation artifact peaks found by the algorithm
-%   id: string or character array of participant / session ID for naming
-%   trialNum: string or character array of the trial number for naming
-%   thresh: OPTIONAL input for the threshold used to determine peaks
-%   path: OPTIONAL input for saving figures (not saved if not provided)
-% output:
-%   fig: handle object to the figure generated for further customization
+%   Plot the raw EMG trace of the artifact localization muscle (normally
+% the proximal tibialis anterior) for each leg with the identified
+% stimulation artifact peaks highlighted by a filled triangle, so that
+% the experimenter can verify the indices used for H-reflex snippet
+% alignment before any amplitude is computed. Peaks flagged as weak by
+% HREFLEX.EXTRACTSTIMARTIFACTINDSFROMTRIGGER are drawn distinctly so a
+% disabled stimulator or a detached electrode is visible at a glance.
+%
+% Inputs:
+%   times     - number of samples x 1 array of time in seconds from the
+%               start of the trial for each sample
+%   rawEMG    - 2-element cell of number of samples x 1 arrays for right
+%               (cell 1) and left (cell 2) leg artifact localization
+%               muscle EMG (if one cell is empty, that leg is not plot)
+%   indsPeaks - 2-element cell of number of peaks x 1 arrays of the
+%               stimulation artifact peak indices found by the algorithm
+%   id        - string or character array of participant/session ID
+%   trialNum  - string or character array of the trial number
+%
+% Optional Name-Value Inputs:
+%   thresh  - peak finding threshold (V) to draw as a horizontal line;
+%             not drawn if NaN (default: NaN)
+%   pathFig - path for saving figures; not saved if empty (default: '')
+%   labels  - 2-element cell of tile title strings for the right (cell
+%             1) and left (cell 2) leg
+%             (default: {'Right TAP', 'Left TAP'})
+%   isWeak  - 2-element cell of number of peaks x 1 logical arrays
+%             marking peaks whose absolute deflection fell below the
+%             quality control floor (default: {[], []}, none flagged)
+%
+% Outputs:
+%   fig - handle object to the figure generated for further customization
+%
+% Toolbox Dependencies:
+%   None
+%
+% See also HREFLEX.EXTRACTSTIMARTIFACTINDSFROMTRIGGER,
+%   HREFLEX.PLOTSNIPPETS, GENERATEHREFLEXRECRUITMENTCURVES.
 
 narginchk(5,7); % verify correct number of input arguments
 
@@ -88,7 +108,28 @@ end
 end
 
 function plotSignalWithPeaks(x,y,inds,thresh)
-% plot EMG signals with detected peaks
+%% Helper Functions
+
+%PLOTSIGNALWITHPEAKS Plot one leg's EMG signal with its detected peaks.
+%
+%   Plot the raw EMG trace with a filled triangle at each detected
+% stimulation artifact peak, drawing any peak flagged as weak in red so
+% that it stands out from the accepted peaks.
+%
+% Inputs:
+%   x      - number of samples x 1 array of time in seconds
+%   y      - number of samples x 1 array of raw EMG signal (V)
+%   inds   - number of peaks x 1 array of artifact peak indices
+%   thresh - peak finding threshold (V); not drawn if NaN
+%   isWeak - number of peaks x 1 logical array marking weak peaks, or
+%            empty if no peak was flagged
+%
+% Outputs:
+%   None
+%
+% Toolbox Dependencies:
+%   None
+
 % TODO: consider moving tile title into this helper function
 
 hold on;
@@ -110,7 +151,23 @@ hold off;
 end
 
 function saveFigure(fig,path,id,trialNum)
-% save figure in PNG and FIG formats
+%SAVEFIGURE Save the artifact peak finding figure to disk.
+%
+%   Save the figure in both PNG and FIG formats using the standard
+% participant and trial naming convention.
+%
+% Inputs:
+%   fig      - handle to the figure to save
+%   path     - path of the folder in which to save the figure
+%   id       - string or character array of participant/session ID
+%   trialNum - string or character array of the trial number
+%
+% Outputs:
+%   None
+%
+% Toolbox Dependencies:
+%   None
+
 fileBase = fullfile(path, ...
     sprintf('%s_StimArtifactPeakFinding_Trial%s',id,trialNum));
 saveas(fig,[fileBase '.png']);

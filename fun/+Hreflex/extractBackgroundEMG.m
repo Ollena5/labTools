@@ -1,20 +1,32 @@
 function snippets = extractBackgroundEMG(inds,rawEMG,opts)
-%EXTRACTBACKGROUNDEMG Extract background EMG snippets before given indices
+%EXTRACTBACKGROUNDEMG Extract background EMG snippets before given indices.
+%
 %   Extract the snippets of the background EMG from the muscle signal
 % before the indices provided.
 %
-% input:
-%   inds: 2 x 1 cell array of number of indices x 1 arrays of the
-%       indices for which to determine background EMG
-%   rawEMG: 2 x 1 cell array of number of samples x 1 arrays for right
-%       (cell 1) and left (cell 2) leg EMG signal (NOTE: if one cell is
-%       input as empty array, that leg will not be computed)
-%   opts (optional): structure with fields:
-%       .dur: background window duration (seconds, default = 0.050)
-%       .numSampsBefore: number samples to skip before index (default = 0)
-% output:
-%   snippets: 2 x 1 cell array of number of indices x number of samples
-%       arrays for right (row 1) and left (row 2) leg background EMG
+% Inputs:
+%   inds   - 2-element cell of number of indices x 1 arrays of the
+%            indices for which to determine background EMG
+%   rawEMG - 2-element cell of number of samples x 1 arrays for right
+%            (cell 1) and left (cell 2) leg EMG signal (if one cell is
+%            empty, that leg is skipped)
+%
+% Optional Name-Value Inputs:
+%   dur           - background window duration, s (default: 0.050)
+%   numSampsBefore - cell of number of samples to skip before each
+%                    index; one cell per leg matching size of inds
+%                    (default: zeros, i.e., start window immediately
+%                    before each index)
+%
+% Outputs:
+%   snippets - 2 x 1 cell of number of indices x number of samples
+%              arrays for right (row 1) and left (row 2) leg
+%              background EMG
+%
+% Toolbox Dependencies:
+%   None
+%
+% See also HREFLEX.EXTRACTSNIPPETS, COMPUTEHREFLEXPARAMETERS.
 
 narginchk(2,3);                 % verify correct number of input arguments
 

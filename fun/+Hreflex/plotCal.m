@@ -1,35 +1,20 @@
 function fig = plotCal(amplitudesStim,values,yLabel,leg,id,trialNum, ...
     varargin)
-%PLOTCAL Plot the H-reflex recruitment or ratio calibration curve
+%PLOTCAL Plot the H-reflex recruitment or ratio calibration curve.
+%
 %   Plot the calibration curve (H-wave and M-wave recruitment or H-to-M
 % ratio) for a single leg.
 %
-% input(s):
-%   amplitudesStim: 1 x number of samples array of stimulation current
-%       intensities (in mA)
-%   values: 2 x 1 or 1 x 1 cell array of number of samples x 1 array(s) of
-%       the H-wave and M-wave amplitudes (in mV) or ratios
-%   yLabel: string or character array of the y-axis label
-%   leg: 'Right Leg' or 'Left Leg' are the two possible values
-%   id: string or character array of participant / session ID for naming
-%   trialNum: string or character array of the trial number for naming
-%   OPTIONAL PARAMETERS (passed as name/value pairs):
-%       fit: input structure of the M-wave and H-wave model fits (default:
-%           empty structure). If provided and 'shouldNormalize' is true,
-%           data are normalized to Mmax.
-%       shouldNormalize: logical indicating whether to normalize data by
-%           Mmax (default: false).
-%       noise: input for the background noise level for the eligibility
-%           threshold (default: NaN).
-%       pathFig: input for saving figures (default: '', i.e., not saved).
-%       shouldAnnotate: logical indicating whether to add annotations
-%           (default: true).
-%       nameFile: string or character array of custom filename (default:
-%           generated automatically)
+% Inputs:
+%   amplitudesStim - 1 x number of stimuli array of stimulation current
+%                    intensities (mA)
+%   values         - 2 x 1 or 1 x 1 cell of number of stimuli x 1 arrays
+%                    of H-wave and M-wave amplitudes (mV) or ratios
+%   yLabel         - string or character array for the y-axis label
+%   leg            - 'Right Leg' or 'Left Leg'
+%   id             - string or character array of participant/session ID
+%   trialNum       - string or character array of the trial number
 %
-% output:
-%   fig: handle object to the figure generated
-
 %% Input Parsing
 p = inputParser;                % create and parse input arguments
 addRequired(p,'amplitudesStim',@(x) isnumeric(x) && isvector(x));
@@ -52,6 +37,27 @@ noise = p.Results.noise;
 pathFig = p.Results.pathFig;
 shouldAnnotate = p.Results.shouldAnnotate;
 nameFile = p.Results.nameFile;
+% Optional Name-Value Inputs:
+%   fit             - struct of M-wave and H-wave model fits from FITCAL;
+%                     if provided with shouldNormalize, data are normalized
+%                     to Mmax (default: empty struct)
+%   shouldNormalize - logical; whether to normalize data by Mmax
+%                     (default: false)
+%   noise           - background noise level for eligibility threshold
+%                     (default: NaN, not shown)
+%   pathFig         - path for saving figures; not saved if empty
+%                     (default: '')
+%   shouldAnnotate  - logical; whether to add annotations (default: true)
+%   nameFile        - custom filename string; auto-generated if empty
+%                     (default: '')
+%
+% Outputs:
+%   fig - handle to the figure generated
+%
+% Toolbox Dependencies:
+%   Signal Processing Toolbox (findpeaks)
+%
+% See also HREFLEX.FITCAL, GENERATEHREFLEXRECRUITMENTCURVES.
 
 %% Determine Plot Type & Leg Identifier
 isRatio = contains(yLabel,'ratio','IgnoreCase',true);   % is ratio plot?

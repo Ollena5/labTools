@@ -1,30 +1,58 @@
 function indsStimArtifact = extractStimArtifactIndsFromTrigger(times, ...
     rawEMG_TAP,pinHreflexStim,varargin)
-%EXTRACTSTIMARTIFACTINDSFROMTRIGGER Extract TAP stim artifact peak indices
-%   Extract the indices of the stimulation artifact peaks in the proximal
-% tibialis anterior muscle raw EMG signal (which seems to be more robust
-% than the stimulation artifact peak of the calf muscles, i.e., grastrocs
-% or soleus, during walking) using the rising edge of the stimulation
-% trigger pulse to localize the artifact peak.
+%EXTRACTSTIMARTIFACTINDSFROMTRIGGER Extract stim artifact peak indices.
 %
-% input(s):
-%   times: number of samples x 1 array of the time in seconds from the
-%       start of the trial for each sample
-%   rawEMG_TAP: 2 x 1 cell array of number of samples x 1 arrays for right
-%       (cell 1) and left (cell 2) leg proximal TA muscle EMG signal (NOTE:
-%       if one cell is input as empty array, that leg will not be computed)
-%   pinHreflexStim: 2 x 1 cell array of number of samples x 1 arrays for
-%       right (cell 1) and left (cell 2) H-reflex stimulator trigger pulses
-%   varargin: optional inputs (name-value pairs)
-%       - 'threshStim': stimulation trigger pulse detection threshold
-%                       (default: 2.5 V)
-%       - 'winDurStim': search window duration around trigger pulse
-%                       (default: 0.1 seconds)
-%       - 'minArtifactPeak': minimum stimulation artifact peak height for
-%                            detection (default: 0.001 V)
-% output:
-%   indsStimArtifact: 2 x 1 cell array of number of stimuli x 1 arrays for
-%       right (cell 1) and left (cell 2) leg stimulation artifact indices
+%   Extract the indices of the stimulation artifact peaks in the
+% artifact localization muscle EMG signal (normally the proximal
+% tibialis anterior, more robust than the calf muscles during walking)
+% using the rising edge of the stimulation trigger pulse to localize the
+% artifact peak.
+%   Within the search window the peak is taken as the largest ABSOLUTE
+% deflection from the window median. The artifact is frequently
+% negative-dominant (its initial deflection is downward, with a smaller
+% positive rebound ~1.5 ms later), so localizing on the signed maximum
+% either lands on the rebound or, when the artifact is small, misses it
+% entirely. Absolute deflection is polarity agnostic and needs no
+% detection threshold, because the window is already anchored to a known
+% trigger pulse.
+%
+% Inputs:
+%   times          - number of samples x 1 array of time in seconds from
+%                    the start of the trial for each sample
+%   rawEMGArtifact - 2-element cell of number of samples x 1 arrays for
+%                    right (cell 1) and left (cell 2) artifact
+%                    localization muscle EMG (if one cell is empty, that
+%                    leg is skipped)
+%   pinHreflexStim - 2-element cell of number of samples x 1 arrays for
+%                    right (cell 1) and left (cell 2) stim trigger pulses
+%
+% Optional Name-Value Inputs:
+%   threshStim      - stim trigger pulse detection threshold, V
+%                     (default: 2.5)
+%   winDurStim      - search window duration around trigger pulse, s
+%                     (default: 0.1). NOTE: the window must stay wide
+%                     enough to span the wireless EMG transmission
+%                     delay, which is ~50 ms for the Delsys system.
+%   minArtifactPeak - quality control floor for the peak absolute
+%                     artifact deflection, V (default: 0.001). A
+%                     stimulus below it is still localized but is
+%                     flagged in isWeakArtifact and warned about.
+%
+% Outputs:
+%   indsStimArtifact - 2 x 1 cell of number of stimuli x 1 arrays for
+%                      right (cell 1) and left (cell 2) stim artifact
+%                      indices
+%   isWeakArtifact   - 2 x 1 cell of number of stimuli x 1 logical
+%                      arrays; true where the peak absolute deflection
+%                      was below minArtifactPeak (e.g., a disabled
+%                      stimulator or a detached electrode)
+%
+% Toolbox Dependencies:
+%   None
+%
+% See also HREFLEX.EXTRACTSNIPPETS, HREFLEX.PLOTSTIMARTIFACTPEAKS,
+%   COMPUTEHREFLEXPARAMETERS.
+
 
 if isempty(times) || all(cellfun(@isempty,rawEMG_TAP)) || ...
         all(cellfun(@isempty,pinHreflexStim))   % validate input arguments
@@ -62,6 +90,19 @@ end
 %% Helper Functions
 
 function stimTimes = getStimOnsetTimes(stimTrig,times,threshStim)
+%GETSTIMONSETTIMES Find the times of the stim trigger pulse rising edges.
+%
+% Inputs:
+%   stimTrig   - number of samples x 1 array of stim trigger pulses (V)
+%   times      - number of samples x 1 array of time in seconds
+%   threshStim - stim trigger pulse detection threshold (V)
+%
+% Outputs:
+%   stimTimes - number of stimuli x 1 array of rising edge times (s)
+%
+% Toolbox Dependencies:
+%   None
+
 % detect rising edges of stimulation trigger pulses
 indsStimAll = find(stimTrig > threshStim);
 % determine which indices correspond to start of new stimulus pulse
@@ -69,11 +110,34 @@ indsStimAll = find(stimTrig > threshStim);
 indsNewPulse = diff([0; indsStimAll]) > 1;      % rising edges
 % determine time since trial start when stim pulse began (rising edge)
 stimTimes = times(indsStimAll(indsNewPulse));
+
 end
 
 function indsStimArtifact = findStimArtifactInds(times,rawEMG, ...
     stimTimes,winDurStim,minPeakHeight)
-% identify stim artifact indices in EMG signal around stimulation times
+%FINDSTIMARTIFACTINDS Locate stim artifact indices around stimulus times.
+%
+%   For each stimulus, take the sample of largest absolute deflection
+% from the window median within +/- winDurStim of the trigger rising
+% edge. Absolute deflection is used because the artifact is commonly
+% negative-dominant; the window is anchored to a known trigger pulse, so
+% the largest deflection within it is the artifact.
+%
+% Inputs:
+%   times         - number of samples x 1 array of time in seconds
+%   rawEMG        - number of samples x 1 array of raw EMG signal (V)
+%   stimTimes     - number of stimuli x 1 array of stim onset times (s)
+%   winDurStim    - search window duration around trigger pulse (s)
+%   minPeakHeight - quality control floor for peak deflection (V)
+%
+% Outputs:
+%   indsStimArtifact - number of stimuli x 1 array of artifact indices
+%   isWeakArtifact   - number of stimuli x 1 logical array; true where
+%                      the peak deflection was below minPeakHeight
+%
+% Toolbox Dependencies:
+%   None
+
 if isempty(rawEMG) || isempty(stimTimes)    % if no EMG or stim data, ...
     indsStimArtifact = [];                  % return empty array
     return;

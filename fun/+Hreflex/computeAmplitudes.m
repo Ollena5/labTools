@@ -1,44 +1,34 @@
 function [amplitudes,rms,usedMedMinMaxInds] = ...
     computeAmplitudes(snippets,varargin)
-%COMPUTEAMPLITUDES Compute amplitudes of H-reflex components from EMG data
+%COMPUTEAMPLITUDES Compute amplitudes of H-reflex components from EMG.
+%
 %   Compute the peak-to-peak amplitudes and RMS values of the M-wave,
 % H-wave, and noise floor from EMG signal snippets for both legs.
 %
-% input:
-%   snippets: 2 x 1 cell array of number of stimuli x number of samples
-%       arrays for right (cell 1) and left (cell 2) leg EMG signal
-%   varargin: (optional)
-%     'WindowDefinitions': 3 x 2 array Time (s) for M-, H-wave, and noise
-%       intervals as [startM endM; startH endH; startNoise endNoise].
-%       Default: [4.5e-3 20e-3; 25e-3 45e-3; 20e-3 25e-3].
-%     'SamplingPeriod': scalar Time (s) between samples. Default: 0.0005 s.
+% Inputs:
+%   snippets - 2 x 1 cell of number of stimuli x number of samples arrays
+%              for right (cell 1) and left (cell 2) leg EMG signal
 %
-% output:
-%   amplitudes: 2 x 3 cell array of number of stimuli x 1 arrays for right
-%       (row 1) and left (row 2) leg H-reflex amplitudes: M-wave (column
-%       1), H-wave (column 2), noise (column 3)
-%   rms: 2 x 3 cell array of RMS values for each wave.
-%   usedMedMinMaxInds: 2 x 2 cell array indicating stimuli with outlier
-%       durations and where median indices were used.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Alternative Approaches
-% If you want to explore alternatives, here are some potential methods:
+% Optional Name-Value Inputs:
+%   WindowDefinitions - 3 x 2 array of time (s) for M-, H-wave, and
+%                       noise intervals as
+%                       [startM endM; startH endH; startNoise endNoise]
+%                       (default: [4.5e-3 20e-3; 25e-3 45e-3; 20e-3 25e-3])
+%   SamplingPeriod    - scalar time (s) between samples (default: 5e-4)
 %
-% Peak-to-Peak Ratio Validation:
+% Outputs:
+%   amplitudes       - 2 x 3 cell of number of stimuli x 1 arrays for
+%                      right (row 1) and left (row 2) leg H-reflex
+%                      amplitudes: M-wave (col 1), H-wave (col 2),
+%                      noise (col 3)
+%   rms              - 2 x 3 cell of RMS values for each wave
+%   usedMedMinMaxInds - 2 x 2 cell indicating stimuli with outlier
+%                       durations where median indices were used
 %
-% Compute the peak-to-peak amplitude within the window and compare it to
-% the signal's baseline noise level (e.g., using a window before the
-% stimulus). Discard measurements only if the peak-to-peak amplitude is
-% below a threshold that reflects the noise floor.
-% Weighted Amplitude Computation:
+% Toolbox Dependencies:
+%   None
 %
-% Signal-To-Noise Ratio (SNR) Criterion:
-%
-% Define a threshold for a valid measurement based on the SNR. For example,
-% if the amplitude of the M-wave or H-wave is more than twice the baseline
-% noise level, consider it valid.
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% See also HREFLEX.EXTRACTSNIPPETS, COMPUTEHREFLEXPARAMETERS.
 
 % TODO:
 %   3. make window indices optional input argument with default to avoid
@@ -93,18 +83,24 @@ end
 end
 
 function [amplitudes,isOutlierDur] = computeWaveAmplitudes(windowsEMG)
-%COMPUTEWAVEAMPLITUDES Computes amplitudes of an M- or H-wave window
-%   Computes all wave amplitudes as the difference between the maximum and
-% minimum value and then updates computation for waves with abnormally long
-% or short wave durations by using the median index at which the minimum
-% and maximum occur to compute a value.
+%% Helper Functions
+
+%COMPUTEWAVEAMPLITUDES Compute amplitudes of an M- or H-wave window.
 %
-% input:
-%   windowsEMG: numStimuli x numSamples array of M- or H-wave EMG window
-% outputs:
-%   amplitudes: numStimuli x 1 array of M- or H-wave amplitudes
-%   isOutlierDur: numStimuli x 1 boolean array indicating whether waveform
-%       duration is an outlier or not
+%   Compute all wave amplitudes as the difference between the maximum and
+% minimum value, then update for waves with abnormally long or short
+% durations by using the median index of the minimum and maximum.
+%
+% Inputs:
+%   windowsEMG - numStimuli x numSamples array of M- or H-wave EMG window
+%
+% Outputs:
+%   amplitudes   - numStimuli x 1 array of M- or H-wave amplitudes
+%   isOutlierDur - numStimuli x 1 logical array; true where waveform
+%                  duration is an outlier
+%
+% Toolbox Dependencies:
+%   None
 
 [valsMin,indsMin] = min(windowsEMG,[],2);   % minimum value and index
 [valsMax,indsMax] = max(windowsEMG,[],2);   % maximum value and index

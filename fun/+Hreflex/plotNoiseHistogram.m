@@ -1,22 +1,29 @@
 function fig = plotNoiseHistogram(amplitudesNoise,leg,id,trialNum,pathFig)
-%PLOTNOISEHISTOGRAM Plot the distribution of the noise for the H-reflex
+%PLOTNOISEHISTOGRAM Plot the noise amplitude distribution for the H-reflex.
+%
 %   Plot the H-reflex noise distribution histogram for a single leg.
 %
-% input(s):
-%   amplitudesNoise: 1 x number of samples array of stimulation current
-%       intensities (in mA)
-%   leg: 'Right Leg' or 'Left Leg' are the two possible values
-%   id: string or character array of participant / session ID for naming
-%   trialNum: string or character array of the trial number for naming
-%   pathFig: OPTIONAL input for saving figures (not saved if not provided)
+% Inputs:
+%   amplitudesNoise - 1 x number of stimuli array of noise amplitudes (mV)
+%   leg             - 'Right Leg' or 'Left Leg'
+%   id              - string or character array of participant/session ID
+%   trialNum        - string or character array of the trial number
 %
-% output:
-%   fig: handle object to the figure generated
-
 narginchk(4,5);                         % verify correct # input arguments
 
 if nargin < 5                           % if no figure saving path, ...
     pathFig = '';                       % default to empty path (no saving)
+% Optional Name-Value Inputs:
+%   pathFig - path for saving figures; not saved if empty (default: '')
+%
+% Outputs:
+%   fig - handle to the figure generated
+%
+% Toolbox Dependencies:
+%   None
+%
+% See also HREFLEX.PLOTCAL, GENERATEHREFLEXRECRUITMENTCURVES.
+
 end
 
 noiseMean = mean(amplitudesNoise);      % mean of all noise amplitudes

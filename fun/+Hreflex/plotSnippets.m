@@ -1,23 +1,33 @@
 function fig = plotSnippets(times,snippets,yLabels,titles,id,trialNum,path)
-%PLOTSNIPPETS Plot H-reflex snippets with GRFs if available
+%PLOTSNIPPETS Plot H-reflex snippets with GRFs if available.
+%
 %   Plot the H-reflex snippets for desired muscles or forces (if desired)
 % with the window bounds for M-wave and H-wave indicated by vertical lines.
+% A leg with no snippets (i.e., a leg that was not stimulated) is skipped
+% rather than plot as an empty tile.
 %
-% input:
-%   times: number of samples x 1 array of the time in seconds with 0
-%       indicating the identified stimulation artifact peak
-%   snippets: 2 x 3 cell array of number of snippets x number of samples
-%       arrays for right (row 1) and left (row 2) leg H-reflex (col 1),
-%       ipsilateral (col 2) and contralateral (col 3) GRF snippets
-%   yLabels: N x 1 cell array of strings or character arrays of the tile
-%       y-axis labels for each of the snippets plotted
-%   titles: N x 1 cell array of strings or character arrays of the tile
-%       titles for each of the snippets plotted
-%   id: string or character array of participant / session ID for naming
-%   trialNum: string or character array of the trial number for naming
-%   path: OPTIONAL input for saving figures (not saved if not provided)
-% output:
-%   fig: handle object to the figure generated
+% Inputs:
+%   times    - number of samples x 1 array of time in seconds with 0
+%              indicating the identified stimulation artifact peak
+%   snippets - 2 x 3 cell of number of snippets x number of samples
+%              arrays for right (row 1) and left (row 2) leg H-reflex
+%              (col 1), ipsilateral (col 2), and contralateral (col 3)
+%              GRF snippets
+%   yLabels  - N x 1 cell array of y-axis label strings for each tile
+%   titles   - N x 1 cell array of title strings for each tile
+%   id       - string or character array of participant/session ID
+%   trialNum - string or character array of the trial number
+%
+% Optional Name-Value Inputs:
+%   pathFig - path for saving figures; not saved if empty (default: '')
+%
+% Outputs:
+%   fig - handle to the figure generated
+%
+% Toolbox Dependencies:
+%   None
+%
+% See also HREFLEX.EXTRACTSNIPPETS, HREFLEX.COMPUTEAMPLITUDES.
 
 narginchk(6,7); % verify correct number of input arguments
 
