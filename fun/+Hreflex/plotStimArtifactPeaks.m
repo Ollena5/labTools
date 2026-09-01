@@ -1,5 +1,5 @@
-function fig = plotStimArtifactPeaks(times,rawEMG_TAP,indsPeaks,id, ...
-    trialNum,varargin)
+function fig = plotStimArtifactPeaks(times, rawEMG, indsPeaks, id, ...
+    trialNum, options)
 %PLOTSTIMARTIFACTPEAKS Plot located stimulation artifact peaks in EMG.
 %
 %   Plot the raw EMG trace of the artifact localization muscle (normally
@@ -59,67 +59,50 @@ if string(version('-release')) < "2019b" % if version older than 2019b, ...
 end
 
 % TODO: add check of correct dimensions for cell arrays
-if isempty(times) || all(cellfun(@isempty,rawEMG_TAP)) || ...
-        all(cellfun(@isempty,indsPeaks))    % validate input arguments
+if isempty(times) || all(cellfun(@isempty, rawEMG)) || ...
+        all(cellfun(@isempty, indsPeaks))   % validate input arguments
     error(['There is critical data missing for plotting the EMG ' ...
         'signal with detected artifact peaks.']);
 end
 
-numOptArgs = length(varargin);
-switch numOptArgs
-    case 0
-        thresh = nan;               % default to Not-a-Number
-        path = '';                  % default to empty
-    case 1                          % one optional argument provided
-        if isnumeric(varargin{1})   % if a number, ...
-            thresh = varargin{1};   % it is the threshold
-            path = '';
-        else                        % otherwise, ...
-            thresh = NaN;
-            path = varargin{1};     % it is the file saving path
-        end
-    case 2                          % both optional arguments provided
-        thresh = varargin{1};       % first always stim artifact threshold
-        path = varargin{2};         % second always file saving path
-    otherwise
-        error('Too many optional arguments. Provide at most 2.');
-end
-
-numLegs = sum(cellfun(@(x) ~isempty(x),rawEMG_TAP));% number of legs
+numLegs = sum(cellfun(@(x) ~isempty(x), rawEMG));   % number of legs
 if numLegs > 2                                      % if more than 2, ...
     error('Input EMG signals must be limited to 2 legs (right and left).');
 end
 
+%% Create Figure
 % set the figure to be full screen
-fig = figure('Units','normalized','OuterPosition',[0 0 1 1]);
-tl = tiledlayout(numLegs,1,'TileSpacing','tight');
+fig = figure('Units', 'normalized', 'OuterPosition', [0 0 1 1]);
+tl = tiledlayout(numLegs, 1, 'TileSpacing', 'tight');
 
-labelsLegs = {'Right TAP','Left TAP'};
+%% Plot Each Leg With Data
 for leg = 1:2                       % for each leg, ...
-    if ~isempty(rawEMG_TAP{leg})    % if EMG data is available, ...
-        nexttile;                   % plot signal with detected peaks
-        plotSignalWithPeaks(times, rawEMG_TAP{leg}, indsPeaks{leg}, thresh);
-        title(labelsLegs(leg));
+    if isempty(rawEMG{leg})         % if no EMG data available, ...
+        continue;                   % advance to next leg
     end
+    nexttile;                       % plot signal with detected peaks
+    plotSignalWithPeaks(times, rawEMG{leg}, indsPeaks{leg}, ...
+        options.thresh, options.isWeak{leg});
+    title(options.labels(leg));
 end
 
 % TODO: should y-axis limits be the same in case of both legs present?
-% TODO: consider accepting labels as optional input argument
 % global labels and title
-xlabel(tl,'Time (s)');
-ylabel(tl,'Raw EMG (V)');
-title(tl,sprintf( ...
-    '%s - Trial %s - Stimulation Artifact Peak Finding',id,trialNum));
+xlabel(tl, 'Time (s)');
+ylabel(tl, 'Raw EMG (V)');
+title(tl, sprintf( ...
+    '%s - Trial %s - Stimulation Artifact Peak Finding', id, trialNum));
 
-if ~isempty(path)   % if figure saving path provided as input argument, ...
-    saveFigure(fig,path,id,trialNum);
+%% Save Figure
+if ~isempty(options.pathFig)    % if figure saving path provided, ...
+    saveFigure(fig, options.pathFig, id, trialNum);
 end
 
 end
 
-function plotSignalWithPeaks(x,y,inds,thresh)
 %% Helper Functions
 
+function plotSignalWithPeaks(x, y, inds, thresh, isWeak)
 %PLOTSIGNALWITHPEAKS Plot one leg's EMG signal with its detected peaks.
 %
 %   Plot the raw EMG trace with a filled triangle at each detected
@@ -141,26 +124,37 @@ function plotSignalWithPeaks(x,y,inds,thresh)
 %   None
 
 % TODO: consider moving tile title into this helper function
+if isempty(isWeak)                      % if no peak flagged, ...
+    isWeak = false(size(inds));         % treat all peaks as accepted
+end
 
 hold on;
 % below code is copied from MATLAB 'findpeaks' function to replicate
-hLine = plot(x,y,'Tag','Signal');       % plot signal line
-hAxes = ancestor(hLine,'Axes');
+hLine = plot(x, y, 'Tag', 'Signal');    % plot signal line
+hAxes = ancestor(hLine, 'Axes');
 grid on;                                % turn on grid
 if numel(y) > 1
     hAxes.XLim = hLine.XData([1 end]);  % restrict x-axis limits
 end
-color = get(hLine,'Color');             % use the color of the line
-line(hLine.XData(inds),y(inds),'Parent',hAxes,'Marker','v', ...
-    'MarkerFaceColor',color,'LineStyle','none','Color',color,'tag','Peak');
+color = get(hLine, 'Color');            % use the color of the line
+indsOK = inds(~isWeak);
+line(hLine.XData(indsOK), y(indsOK), 'Parent', hAxes, 'Marker', 'v', ...
+    'MarkerFaceColor', color, 'LineStyle', 'none', 'Color', color, ...
+    'Tag', 'Peak');
+if any(isWeak)                          % if any peak flagged weak, ...
+    indsWeak = inds(isWeak);            % highlight it in red
+    line(hLine.XData(indsWeak), y(indsWeak), 'Parent', hAxes, ...
+        'Marker', 'o', 'MarkerSize', 10, 'LineWidth', 1.5, ...
+        'LineStyle', 'none', 'Color', 'r', 'Tag', 'WeakPeak');
+end
 if ~isnan(thresh)                       % if threshold is not NaN, ...
-    yline(thresh,'r','Peak Finding Threshold');     % plot it
+    yline(thresh, 'r', 'Peak Finding Threshold');   % plot it
 end
 hold off;
 
 end
 
-function saveFigure(fig,path,id,trialNum)
+function saveFigure(fig, path, id, trialNum)
 %SAVEFIGURE Save the artifact peak finding figure to disk.
 %
 %   Save the figure in both PNG and FIG formats using the standard
@@ -179,8 +173,8 @@ function saveFigure(fig,path,id,trialNum)
 %   None
 
 fileBase = fullfile(path, ...
-    sprintf('%s_StimArtifactPeakFinding_Trial%s',id,trialNum));
-saveas(fig,[fileBase '.png']);
-saveas(fig,[fileBase '.fig']);
-end
+    sprintf('%s_StimArtifactPeakFinding_Trial%s', id, trialNum));
+saveas(fig, [fileBase '.png']);
+saveas(fig, [fileBase '.fig']);
 
+end
