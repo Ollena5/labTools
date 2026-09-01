@@ -1,5 +1,6 @@
-function indsStimArtifact = extractStimArtifactIndsFromTrigger(times, ...
-    rawEMG_TAP,pinHreflexStim,varargin)
+function [indsStimArtifact, isWeakArtifact] = ...
+    extractStimArtifactIndsFromTrigger(times, rawEMGArtifact, ...
+    pinHreflexStim, options)
 %EXTRACTSTIMARTIFACTINDSFROMTRIGGER Extract stim artifact peak indices.
 %
 %   Extract the indices of the stimulation artifact peaks in the
@@ -62,42 +63,52 @@ arguments
     options.minArtifactPeak (1,1) double {mustBePositive} = 0.001 % V
 end
 
-if isempty(times) || all(cellfun(@isempty,rawEMG_TAP)) || ...
-        all(cellfun(@isempty,pinHreflexStim))   % validate input arguments
+if isempty(times) || all(cellfun(@isempty, rawEMGArtifact)) || ...
+        all(cellfun(@isempty, pinHreflexStim))
     error(['There is data missing that is crucial for computing the ' ...
         'stimulation artifact indices']);
 end
 
 % NOTE: it does not work to use stim trigger pulse to retrieve peak times
 % if stimulator is disabled during trial (because there will be a trigger
-% pulse but the participant will not have been stimulated)
+% pulse but the participant will not have been stimulated); such stimuli
+% are flagged in isWeakArtifact rather than silently mislocalized
 
-p = inputParser;        % parse optional inputs
-addParameter(p,'threshStim',2.5,@(x) isnumeric(x) && x > 0);
-addParameter(p,'winDurStim',0.1,@(x) isnumeric(x) && x > 0);
-addParameter(p,'minArtifactPeak',0.001,@(x) isnumeric(x) && x > 0);
-parse(p,varargin{:});
+%% Identify Stimulation Onset Times
+stimTimeRAbs = getStimOnsetTimes( ...
+    pinHreflexStim{1}, times, options.threshStim);
+stimTimeLAbs = getStimOnsetTimes( ...
+    pinHreflexStim{2}, times, options.threshStim);
 
-threshStim = p.Results.threshStim;  % stim trigger pulse threshold (V)
-winDurStim = p.Results.winDurStim;  % +/- 100 ms of stim pulse onset
-minPeak = p.Results.minArtifactPeak;% 1 mV min. stim artifact peak height
-
-% get stimulation onset times
-stimTimeRAbs = getStimOnsetTimes(pinHreflexStim{1},times,threshStim);
-stimTimeLAbs = getStimOnsetTimes(pinHreflexStim{2},times,threshStim);
-
-% convert stimulation times to indices in the EMG signal
+%% Localize Artifact Peaks in EMG Signal
 indsStimArtifact = cell(2, 1);
-indsStimArtifact{1} = findStimArtifactInds(times,rawEMG_TAP{1}, ...
-    stimTimeRAbs,winDurStim,minPeak);
-indsStimArtifact{2} = findStimArtifactInds(times,rawEMG_TAP{2}, ...
-    stimTimeLAbs,winDurStim,minPeak);
+isWeakArtifact   = cell(2, 1);
+[indsStimArtifact{1}, isWeakArtifact{1}] = findStimArtifactInds( ...
+    times, rawEMGArtifact{1}, stimTimeRAbs, options.winDurStim, ...
+    options.minArtifactPeak);
+[indsStimArtifact{2}, isWeakArtifact{2}] = findStimArtifactInds( ...
+    times, rawEMGArtifact{2}, stimTimeLAbs, options.winDurStim, ...
+    options.minArtifactPeak);
+
+%% Warn About Stimuli With a Weak Artifact
+labelsLegs = {'right', 'left'};
+for leg = 1:2                               % for each leg, ...
+    numWeak = sum(isWeakArtifact{leg});
+    if numWeak > 0                          % if any weak artifact, ...
+        warning('Hreflex:weakStimArtifact', ...
+            ['%d of %d %s leg stimuli have a peak artifact ' ...
+            'deflection below %.4f V. Verify the stimulator was ' ...
+            'enabled and the electrodes attached.'], numWeak, ...
+            numel(isWeakArtifact{leg}), labelsLegs{leg}, ...
+            options.minArtifactPeak);
+    end
+end
 
 end
 
 %% Helper Functions
 
-function stimTimes = getStimOnsetTimes(stimTrig,times,threshStim)
+function stimTimes = getStimOnsetTimes(stimTrig, times, threshStim)
 %GETSTIMONSETTIMES Find the times of the stim trigger pulse rising edges.
 %
 % Inputs:
@@ -121,8 +132,8 @@ stimTimes = times(indsStimAll(indsNewPulse));
 
 end
 
-function indsStimArtifact = findStimArtifactInds(times,rawEMG, ...
-    stimTimes,winDurStim,minPeakHeight)
+function [indsStimArtifact, isWeakArtifact] = findStimArtifactInds( ...
+    times, rawEMG, stimTimes, winDurStim, minPeakHeight)
 %FINDSTIMARTIFACTINDS Locate stim artifact indices around stimulus times.
 %
 %   For each stimulus, take the sample of largest absolute deflection
@@ -147,31 +158,30 @@ function indsStimArtifact = findStimArtifactInds(times,rawEMG, ...
 %   None
 
 if isempty(rawEMG) || isempty(stimTimes)    % if no EMG or stim data, ...
-    indsStimArtifact = [];                  % return empty array
+    indsStimArtifact = [];                  % return empty arrays
+    isWeakArtifact   = [];
     return;
 end
 
 period = mean(diff(times));                 % sampling period
 winSamples = round(winDurStim / period);    % search window dur. in samples
 numStim = numel(stimTimes);                 % number of stimuli
-indsStimArtifact = nan(numStim,1);          % initialize array of indices
+indsStimArtifact = nan(numStim, 1);         % initialize array of indices
+isWeakArtifact = false(numStim, 1);         % initialize QC flag array
 
 for st = 1:numStim                          % for each stimulus, ...
     % locate EMG data index corresponding to onset of stim trigger pulse
-    [~,indStim] = min(abs(times - stimTimes(st)));
+    [~, indStim] = min(abs(times - stimTimes(st)));
     % ensure window does not exceed EMG data in case stim near trial end
-    winSearch = max(1,indStim - winSamples): ...    % search window around
-        min(length(rawEMG),indStim + winSamples);   % stimulation time
-    [~,locs] = findpeaks(rawEMG(winSearch),'MinPeakHeight',minPeakHeight);
+    winSearch = max(1, indStim - winSamples): ...   % search window around
+        min(length(rawEMG), indStim + winSamples);  % stimulation time
+    segment = rawEMG(winSearch);
+    % deflection from the window median, ignoring artifact polarity
+    deflection = abs(segment - median(segment, 'omitnan'));
+    [peakDeflection, indPeak] = max(deflection, [], 'omitnan');
 
-    if isempty(locs)                        % if no peaks detected, ...
-        [~,indMaxTAP] = max(rawEMG(winSearch)); % use maximum value as peak
-    else                                    % otherwise, ...
-        indMaxTAP = locs(1);                % use first (earliest) peak
-    end
-
-    indsStimArtifact(st) = winSearch(indMaxTAP);
+    indsStimArtifact(st) = winSearch(indPeak);
+    isWeakArtifact(st)   = peakDeflection < minPeakHeight;
 end
 
 end
-
