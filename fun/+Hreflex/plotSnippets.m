@@ -29,11 +29,18 @@ function fig = plotSnippets(times,snippets,yLabels,titles,id,trialNum,path)
 %
 % See also HREFLEX.EXTRACTSNIPPETS, HREFLEX.COMPUTEAMPLITUDES.
 
-narginchk(6,7); % verify correct number of input arguments
 
 if string(version('-release')) < "2019b" % if version older than 2019b, ...
     error(['MATLAB version must support ''tiledlayout'' (R2019b or ' ...
         'later.']);
+arguments
+    times    (:,1) double
+    snippets (2,3) cell
+    yLabels  cell
+    titles   cell
+    id       (1,:) {mustBeText}
+    trialNum (1,:) {mustBeText}
+    options.pathFig (1,:) char = ''
 end
 
 % validate the size of 'snippets' and ensure it matches the expected format

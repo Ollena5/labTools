@@ -41,7 +41,17 @@ function fig = plotStimArtifactPeaks(times,rawEMG_TAP,indsPeaks,id, ...
 % See also HREFLEX.EXTRACTSTIMARTIFACTINDSFROMTRIGGER,
 %   HREFLEX.PLOTSNIPPETS, GENERATEHREFLEXRECRUITMENTCURVES.
 
-narginchk(5,7); % verify correct number of input arguments
+arguments
+    times     (:,1) double
+    rawEMG    cell
+    indsPeaks cell
+    id        (1,:) {mustBeText}
+    trialNum  (1,:) {mustBeText}
+    options.thresh  (1,1) double = NaN
+    options.pathFig (1,:) char   = ''
+    options.labels  cell         = {'Right TAP', 'Left TAP'}
+    options.isWeak  cell         = {[], []}
+end
 
 if string(version('-release')) < "2019b" % if version older than 2019b, ...
     error(['MATLAB version must support ''tiledlayout'' (R2019b or ' ...

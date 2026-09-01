@@ -38,18 +38,18 @@ function [amplitudes,rms,usedMedMinMaxInds] = ...
 %   based on the H-reflex data (this may allow the noise window to be
 %   broader than it currently is)
 
-p = inputParser;                    % parse optional input arguments
-% M-wave is contained by interval:  4.5ms - 20ms after stimulation artifact
-% H-wave is contained by interval: 25  ms - 45ms
-% Noise is contained by interval:  20  ms - 25ms
-% TODO: is noise window correct? GTO requested between M- and H-wave
-addParameter(p,'WindowDefinitions', ...
-    [4.5e-3 20e-3; 25e-3 45e-3; 20e-3 25e-3]);
-% NOTE: should always be same across trials and should be same for forces
-addParameter(p,'SamplingPeriod',0.0005);
-parse(p,varargin{:});
-windowDefs = p.Results.WindowDefinitions;
-period = p.Results.SamplingPeriod;
+arguments
+    snippets cell
+    % M-wave is contained by interval:  4.5 ms – 20 ms after stim artifact
+    % H-wave is contained by interval: 25   ms – 45 ms
+    % Noise is contained by interval:  20   ms – 25 ms
+    % TODO: is noise window correct? GTO requested between M- and H-wave
+    options.WindowDefinitions (3,2) double = ...
+        [4.5e-3 20e-3; 25e-3 45e-3; 20e-3 25e-3]
+    % NOTE: should always be same across trials and should be same for forces
+    options.SamplingPeriod (1,1) double {mustBePositive} = 5e-4
+end
+
 
 amplitudes = cell(2,3);             % instantiate amplitudes cell array
 rms = cell(2,3);                    % instantiate output RMS cell array

@@ -28,7 +28,12 @@ function snippets = extractBackgroundEMG(inds,rawEMG,opts)
 %
 % See also HREFLEX.EXTRACTSNIPPETS, COMPUTEHREFLEXPARAMETERS.
 
-narginchk(2,3);                 % verify correct number of input arguments
+arguments
+    inds   cell
+    rawEMG cell
+    options.dur           (1,1) double {mustBePositive} = 0.050 % s
+    options.numSampsBefore        = []
+end
 
 % check if critical input data is available
 if all(cellfun(@isempty,inds)) || all(cellfun(@isempty,rawEMG))

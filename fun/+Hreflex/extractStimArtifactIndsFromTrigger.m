@@ -53,6 +53,14 @@ function indsStimArtifact = extractStimArtifactIndsFromTrigger(times, ...
 % See also HREFLEX.EXTRACTSNIPPETS, HREFLEX.PLOTSTIMARTIFACTPEAKS,
 %   COMPUTEHREFLEXPARAMETERS.
 
+arguments
+    times             (:,1) double
+    rawEMGArtifact    cell
+    pinHreflexStim    cell
+    options.threshStim      (1,1) double {mustBePositive} = 2.5   % V
+    options.winDurStim      (1,1) double {mustBePositive} = 0.1   % s
+    options.minArtifactPeak (1,1) double {mustBePositive} = 0.001 % V
+end
 
 if isempty(times) || all(cellfun(@isempty,rawEMG_TAP)) || ...
         all(cellfun(@isempty,pinHreflexStim))   % validate input arguments

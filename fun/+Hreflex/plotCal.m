@@ -15,28 +15,6 @@ function fig = plotCal(amplitudesStim,values,yLabel,leg,id,trialNum, ...
 %   id             - string or character array of participant/session ID
 %   trialNum       - string or character array of the trial number
 %
-%% Input Parsing
-p = inputParser;                % create and parse input arguments
-addRequired(p,'amplitudesStim',@(x) isnumeric(x) && isvector(x));
-addRequired(p,'values',@iscell);
-addRequired(p,'yLabel',@(x) ischar(x) || isstring(x));
-addRequired(p,'leg',@(x) ischar(x) || isstring(x));
-addRequired(p,'id',@(x) ischar(x) || isstring(x));
-addRequired(p,'trialNum',@(x) ischar(x) || isstring(x));
-addParameter(p,'fit',struct(),@isstruct);
-addParameter(p,'shouldNormalize',false,@islogical);
-addParameter(p,'noise',NaN,@isnumeric);
-addParameter(p,'pathFig','',@(x) ischar(x) || isstring(x));
-addParameter(p,'shouldAnnotate',true,@islogical);
-addParameter(p,'nameFile','',@(x) ischar(x) || isstring(x));
-parse(p,amplitudesStim,values,yLabel,leg,id,trialNum,varargin{:});
-% retrieve option input arguments
-fit = p.Results.fit;
-shouldNormalize = p.Results.shouldNormalize;
-noise = p.Results.noise;
-pathFig = p.Results.pathFig;
-shouldAnnotate = p.Results.shouldAnnotate;
-nameFile = p.Results.nameFile;
 % Optional Name-Value Inputs:
 %   fit             - struct of M-wave and H-wave model fits from FITCAL;
 %                     if provided with shouldNormalize, data are normalized
@@ -58,6 +36,21 @@ nameFile = p.Results.nameFile;
 %   Signal Processing Toolbox (findpeaks)
 %
 % See also HREFLEX.FITCAL, GENERATEHREFLEXRECRUITMENTCURVES.
+
+arguments
+    amplitudesStim  (1,:) double
+    values          (:,1) cell
+    yLabel          (1,:) {mustBeText}
+    leg             (1,:) {mustBeText}
+    id              (1,:) {mustBeText}
+    trialNum        (1,:) {mustBeText}
+    options.fit             (1,1) struct  = struct()
+    options.shouldNormalize (1,1) logical = false
+    options.noise           (1,1) double  = NaN
+    options.pathFig         (1,:) char    = ''
+    options.shouldAnnotate  (1,1) logical = true
+    options.nameFile        (1,:) char    = ''
+end
 
 %% Determine Plot Type & Leg Identifier
 isRatio = contains(yLabel,'ratio','IgnoreCase',true);   % is ratio plot?

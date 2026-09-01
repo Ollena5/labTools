@@ -32,10 +32,10 @@ function [snippets,timesSnippet] = extractSnippets(indsPeaks,rawEMG,GRFz)
 % See also HREFLEX.COMPUTEAMPLITUDES, HREFLEX.PLOTSNIPPETS,
 %   COMPUTEHREFLEXPARAMETERS.
 
-narginchk(2,3);         % verify correct number of input arguments
-
-if nargin == 2          % if only two input arguments, ...
-    GRFz = {[], []};    % default to empty GRFz cell array
+arguments
+    indsPeaks cell
+    rawEMG    cell
+    options.GRFz cell = {[], []}
 end
 
 if all(cellfun(@isempty,indsPeaks)) || all(cellfun(@isempty,rawEMG))

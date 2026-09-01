@@ -9,10 +9,6 @@ function fig = plotNoiseHistogram(amplitudesNoise,leg,id,trialNum,pathFig)
 %   id              - string or character array of participant/session ID
 %   trialNum        - string or character array of the trial number
 %
-narginchk(4,5);                         % verify correct # input arguments
-
-if nargin < 5                           % if no figure saving path, ...
-    pathFig = '';                       % default to empty path (no saving)
 % Optional Name-Value Inputs:
 %   pathFig - path for saving figures; not saved if empty (default: '')
 %
@@ -24,6 +20,12 @@ if nargin < 5                           % if no figure saving path, ...
 %
 % See also HREFLEX.PLOTCAL, GENERATEHREFLEXRECRUITMENTCURVES.
 
+arguments
+    amplitudesNoise (1,:) double
+    leg             (1,:) {mustBeText}
+    id              (1,:) {mustBeText}
+    trialNum        (1,:) {mustBeText}
+    options.pathFig (1,:) char = ''
 end
 
 noiseMean = mean(amplitudesNoise);      % mean of all noise amplitudes
