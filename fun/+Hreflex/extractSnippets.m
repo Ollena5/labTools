@@ -1,4 +1,4 @@
-function [snippets,timesSnippet] = extractSnippets(indsPeaks,rawEMG,GRFz)
+function [snippets, timesSnippet] = extractSnippets(indsPeaks, rawEMG, options)
 %EXTRACTSNIPPETS Extract H-reflex and optional GRF snippets for plotting.
 %
 %   Extract snippets of the H-reflex from the muscle raw EMG signal based
@@ -38,47 +38,44 @@ arguments
     options.GRFz cell = {[], []}
 end
 
-if all(cellfun(@isempty,indsPeaks)) || all(cellfun(@isempty,rawEMG))
+if all(cellfun(@isempty, indsPeaks)) || all(cellfun(@isempty, rawEMG))
     error('Critical data missing for extracting the H-reflex snippets.');
 end
 
+%% Define Snippet Extraction Parameters
 % NOTE: should always be same across trials and should be same for forces
 % TODO: make optional input argument?
-% parameters for snippet extraction
-period = 0.0005;                        % sampling period (seconds)
-snipStart = -0.005;                     % include 5 ms before artifact peak
-snipEnd = 0.055;                        % include 55 ms after artifact peak
-timesSnippet = snipStart:period:snipEnd;% snippet sample times for plotting
-numSamps = numel(timesSnippet);         % number of samples in EMG snippet
+period       = 0.0005;                      % sampling period (seconds)
+snipStart    = -0.005;                      % 5 ms before artifact peak
+snipEnd      = 0.055;                       % 55 ms after artifact peak
+timesSnippet = snipStart:period:snipEnd;    % snippet sample times
+numSamps     = numel(timesSnippet);         % number of samples in snippet
 
-% initialize the snippets cell array to be populated by extraction
-numStim = cellfun(@length,indsPeaks);   % number of stimuli for each leg
-% store right (row 1) and left (row 2) leg H-reflex (col 1), ipsilateral
-% (col 2) and contralateral (col 3) GRF snippets for plotting
-snippets = cell(2,3);                   % store snippets for each leg
-for leg = 1:2                           % for right and left leg, ...
-    snippets{leg,1} = nan(numStim(leg),numSamps);   % EMG snippets
-    snippets{leg,2} = nan(numStim(leg),numSamps);   % ipsilateral GRF
-    snippets{leg,3} = nan(numStim(leg),numSamps);   % contralateral GRF
+%% Initialize Snippet Cell Array
+numStim  = cellfun(@length, indsPeaks);     % number of stimuli per leg
+snippets = cell(2, 3);
+for leg = 1:2                               % for right and left leg, ...
+    snippets{leg,1} = nan(numStim(leg), numSamps);  % EMG snippets
+    snippets{leg,2} = nan(numStim(leg), numSamps);  % ipsilateral GRF
+    snippets{leg,3} = nan(numStim(leg), numSamps);  % contralateral GRF
 end
 
-for leg = 1:2                           % for right and left leg, ...
+%% Extract Snippets for Each Leg
+for leg = 1:2                               % for right and left leg, ...
     if isempty(indsPeaks{leg}) || isempty(rawEMG{leg})
-        continue;                       % advance to next leg
+        continue;                           % advance to next leg
     end
-    snippets(leg,:) = extractSnippetsLeg(indsPeaks{leg},rawEMG{leg},GRFz,leg,numSamps,snipStart,snipEnd,period);
+    snippets(leg, :) = extractSnippetsLeg( ...
+        indsPeaks{leg}, rawEMG{leg}, options.GRFz, leg, ...
+        numSamps, snipStart, snipEnd, period);
 end
 
 end
 
-function snipCell = extractSnippetsLeg(indsPeaks,EMG,GRFz,leg, ...
-    numSamples,snipStart,snipEnd,period)
 %% Helper Functions
 
-numStim = numel(indsPeaks);             % number of stimuli for current leg
-snipEMG = nan(numStim,numSamples);      % EMG snippets
-snipIpsi = nan(numStim,numSamples);     % ipsilateral GRFz snippets
-snipContra = nan(numStim,numSamples);   % contralateral GRFz snippets
+function snipCell = extractSnippetsLeg(indsPeaks, EMG, GRFz, leg, ...
+    numSamples, snipStart, snipEnd, period)
 %EXTRACTSNIPPETSLEG Extract EMG and GRF snippets for a single leg.
 %
 %   Loop over each provided stimulus index, extract the window relative to
@@ -100,40 +97,42 @@ snipContra = nan(numStim,numSamples);   % contralateral GRFz snippets
 % Toolbox Dependencies:
 %   None
 
-for st = 1:numStim                      % for each stimulus, ...
-    win = (indsPeaks(st) + round(snipStart / period)) : ...
-        (indsPeaks(st) + round(snipEnd / period));      % snippet window
-    % create a temporary array for the snippet filled with 'NaN'
-    temp = nan(1,numSamples);
-    % determine valid indices within bounds for EMG
-    valid = (win >= 1) & (win <= numel(EMG));
-    if any(valid)                       % if any data within bounds, ...
-        temp(valid) = EMG(win(valid));  % H-reflex snippet
-    end
-    snipEMG(st,:) = temp;
+numStim    = numel(indsPeaks);              % number of stimuli for leg
+snipEMG    = nan(numStim, numSamples);      % EMG snippets
+snipIpsi   = nan(numStim, numSamples);      % ipsilateral GRFz snippets
+snipContra = nan(numStim, numSamples);      % contralateral GRFz snippets
 
-    if ~isempty(GRFz{leg})              % if GRFz data available, ...
-        temp = nan(1,numSamples);
+for st = 1:numStim                          % for each stimulus, ...
+    win = (indsPeaks(st) + round(snipStart / period)) : ...
+        (indsPeaks(st) + round(snipEnd / period));  % snippet window
+    temp  = nan(1, numSamples);
+    valid = (win >= 1) & (win <= numel(EMG));
+    if any(valid)                           % if any data within bounds, ...
+        temp(valid) = EMG(win(valid));      % H-reflex snippet
+    end
+    snipEMG(st, :) = temp;
+
+    if ~isempty(GRFz{leg})                  % if GRFz data available, ...
+        temp  = nan(1, numSamples);
         valid = (win >= 1) & (win <= numel(GRFz{leg}));
         if any(valid)
             temp(valid) = GRFz{leg}(win(valid));        % ipsilateral GRFz
         end
-        snipIpsi(st,:) = temp;
+        snipIpsi(st, :) = temp;
     end
 
-    legContra = 3 - leg;                % contralat. index (1 -> 2, 2 -> 1)
-    if ~isempty(GRFz{legContra})        % if GRFz data available, ...
-        temp = nan(1,numSamples);
+    legContra = 3 - leg;                    % contralat. index (1→2, 2→1)
+    if ~isempty(GRFz{legContra})            % if GRFz data available, ...
+        temp  = nan(1, numSamples);
         valid = (win >= 1) & (win <= numel(GRFz{legContra}));
         if any(valid)
             temp(valid) = GRFz{legContra}(win(valid));  % contralateral GRF
         end
-        snipContra(st,:) = temp;
+        snipContra(st, :) = temp;
     end
 end
 
 % return as a cell array [EMG, Ipsilateral GRF, Contralateral GRF]
-snipCell = {snipEMG,snipIpsi,snipContra};
+snipCell = {snipEMG, snipIpsi, snipContra};
 
 end
-
