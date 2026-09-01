@@ -455,19 +455,6 @@ indsStimArtifact = cell(2,1);
 isWeakArtifact   = cell(2,1);
 if shouldUseStimTrig && hasStimTrig
     % extract all stimulation trigger data for each leg
-    indsStimArtifact = Hreflex.extractStimArtifactIndsFromTrigger( ...
-        times, {EMG_RTAP, EMG_LTAP}, {stimTrigR, stimTrigL});
-    locsR = indsStimArtifact{1};
-    locsL = indsStimArtifact{2};
-
-    % validate the number of detected stimulation triggers
-    if (numStimR ~= numel(locsR)) || (numStimL ~= numel(locsL))
-        error(['The number of stimulation trigger pulses does not ' ...
-            'match the number of input stimulation amplitudes.']);
-    end
-
-    Hreflex.plotStimArtifactPeaks(times,{EMG_RTAP,EMG_LTAP}, ...
-        {locsR,locsL},id,trialNum,pathFigs);
     stimTrig = { ...
         HreflexStimPin.getDataAsVector( ...
         'Stimulator_Trigger_Sync_Right_Stimulator'), ...
@@ -475,18 +462,60 @@ if shouldUseStimTrig && hasStimTrig
         'Stimulator_Trigger_Sync_Left__Stimulator')};
     stimTrig(~isLegStim) = {[]};    % ignore any leg not being analyzed
 
+    [indsStimArtifact,isWeakArtifact] = ...
+        Hreflex.extractStimArtifactIndsFromTrigger(times,EMGArtifact, ...
+        stimTrig,'minArtifactPeak',threshStimArtifact);
+
+    Hreflex.plotStimArtifactPeaks(times,EMGArtifact,indsStimArtifact, ...
+        id,trialNum,'pathFig',pathFigs,'labels',labelsArtifact, ...
+        'isWeak',isWeakArtifact);
 else
-    warning(['No stimulation trigger signal being used. Artifact ' ...
-        'identification may not be as accurate.']);
+    % NOTE: with no trigger pulse to anchor a search window, candidate
+    % deflections are ranked by size and the number of stimuli the
+    % experimenter entered is kept. The stimulus count is known, so
+    % ranking avoids depending on a threshold that must be retuned per
+    % participant: on the 2026-08-21 dry run, keeping the first N peaks
+    % above 0.3 mV both excluded 3 of 60 real artifacts and admitted
+    % walking EMG bursts, while ranking located all 60. The artifact
+    % threshold instead flags small artifacts, exactly as it does on the
+    % trigger path. Absolute deflection is used because the artifact is
+    % commonly negative-dominant.
+    for leg = 1:2                       % for each leg, ...
+        if ~isLegStim(leg)              % if leg not being analyzed, ...
+            continue;                   % advance to next leg
+        end
+        deflection = abs(EMGArtifact{leg} - ...
+            median(EMGArtifact{leg},'omitnan'));
+        deflection(isnan(deflection)) = 0;  % findpeaks needs finite data
+        [peaks,locs] = findpeaks(deflection,'NPeaks',numStim(leg), ...
+            'SortStr','descend','MinPeakDistance',threshSamps);
+        [locs,indsOrder] = sort(locs);          % restore time order
+        indsStimArtifact{leg} = locs;
+        isWeakArtifact{leg} = peaks(indsOrder) < threshStimArtifact;
+    end
 
-    % detect stimulation artifact locations without using stim triggers
-    [~,locsR] = findpeaks(EMG_RTAP,'NPeaks',numStimR, ...
-        'MinPeakHeight',threshStimArtifact,'MinPeakDistance',threshSamps);
-    [~,locsL] = findpeaks(EMG_LTAP,'NPeaks',numStimL, ...
-        'MinPeakHeight',threshStimArtifact,'MinPeakDistance',threshSamps);
+    Hreflex.plotStimArtifactPeaks(times,EMGArtifact,indsStimArtifact, ...
+        id,trialNum,'thresh',threshStimArtifact,'pathFig',pathFigs, ...
+        'labels',labelsArtifact,'isWeak',isWeakArtifact);
+end
 
-    Hreflex.plotStimArtifactPeaks(times,{EMG_RTAP,EMG_LTAP}, ...
-        {locsR,locsL},id,trialNum,threshStimArtifact,pathFigs);
+%% Summarize Stimulation Artifact Detection Quality
+% NOTE: a leg whose median artifact is near the noise floor was most
+% likely not actually stimulated (e.g., stimulator disabled or electrodes
+% detached), which is otherwise easy to miss in the recruitment curves
+for leg = 1:2                           % for each leg, ...
+    if ~isLegStim(leg)                  % if leg not being analyzed, ...
+        fprintf('%s: not analyzed.\n',namesLegs{leg});
+        continue;                       % advance to next leg
+    end
+    indsLeg = indsStimArtifact{leg};
+    sigLeg = EMGArtifact{leg};
+    deflectionsPeak = abs(sigLeg(indsLeg) - median(sigLeg,'omitnan'));
+    fprintf(['%s: %d of %d expected stimuli located in %s; median ' ...
+        'peak artifact %.4f V; %d flagged below %.4f V.\n'], ...
+        namesLegs{leg},numel(indsLeg),numStim(leg), ...
+        labelsArtifact{leg},median(deflectionsPeak,'omitnan'), ...
+        sum(isWeakArtifact{leg}),threshStimArtifact);
 end
 
 % ask user if would like to continue after verifying artifact detection
@@ -496,9 +525,21 @@ if strcmp(shouldCont,'No')      % if should not continue script, ...
     return;                     % stop script execution for adjustments
 end
 
+% validate the number of detected stimuli only after the experimenter has
+% seen the artifact peak figure, so a mismatch can be diagnosed from it
+for leg = 1:2                           % for each leg, ...
+    if isLegStim(leg) && (numStim(leg) ~= numel(indsStimArtifact{leg}))
+        error(['The number of %s stimulation artifacts located (%d) ' ...
+            'does not match the number of input stimulation ' ...
+            'amplitudes (%d).'],lower(namesLegs{leg}), ...
+            numel(indsStimArtifact{leg}),numStim(leg));
+    end
+end
+
 %% 9. Extract & Plot All Snippets to Verify Waveforms & Timing (Via GRFs)
-[snippets,timesSnippet] = Hreflex.extractSnippets( ...  % extract EMG and
-    {locsR;locsL},{EMG_RH;EMG_LH},{GRFRFz;GRFLFz});     % GRF snippets
+[snippets, timesSnippet] = Hreflex.extractSnippets( ...
+    indsStimArtifact, EMGHreflex(:), ...   % extract EMG snippets
+    'GRFz', {GRFRFz; GRFLFz});             % and GRF snippets
 
 % TODO: add stim intensity array input to color snippets by amplitude
 % TODO: move the finding of unique amplitudes and indices up here
@@ -507,8 +548,8 @@ tileTitles = {'Right & Left Fz - Right Stim', ...
     'Left & Right Fz - Left Stim', ...
     ['Right ' muscleHreflex],['Left ' muscleHreflex]};
 yLabels = {'Force (N)','Force (N)','Raw EMG (V)','Raw EMG (V)'};
-Hreflex.plotSnippets(timesSnippet,snippets,yLabels,tileTitles, ...
-    id,trialNum,pathFigs);      % plot all snippets for visual verification
+Hreflex.plotSnippets(timesSnippet, snippets, yLabels, tileTitles, ...
+    id, trialNum, 'pathFig', pathFigs); % plot all snippets for visual verification
 
 %% 10. Compute M- & H-wave Amplitudes
 % TODO: reject measurements if GRF reveals not in single stance
@@ -525,74 +566,107 @@ ampsNoise = amps(:,3);
 
 %% 11. Compute Means & Ratios for Unique Stimulation Amplitudes
 % TODO: delete this block if variables not used anywhere
-ampsStimRU = unique(ampsStimR); % find unique stimulation amplitudes
-ampsStimLU = unique(ampsStimL);
+ampsStimU  = cell(2,1);     % unique stimulation amplitudes per leg
+avgsHwave  = cell(2,1);
+avgsMwave  = cell(2,1);
+ratios     = cell(2,1);
+avgsRatio  = cell(2,1);
+for leg = 1:2                           % for each leg, ...
+    if ~isLegStim(leg)                  % if leg not being analyzed, ...
+        continue;                       % advance to next leg
+    end
+    ampsStimU{leg} = unique(ampsStim{leg}); % find unique stim amplitudes
 
-% compute average amplitudes
-avgsHwaveR = arrayfun(@(x) mean(ampsHwaveR(ampsStimR == x),'omitnan'),ampsStimRU);
-avgsMwaveR = arrayfun(@(x) mean(ampsMwaveR(ampsStimR == x),'omitnan'),ampsStimRU);
-avgsHwaveL = arrayfun(@(x) mean(ampsHwaveL(ampsStimL == x),'omitnan'),ampsStimLU);
-avgsMwaveL = arrayfun(@(x) mean(ampsMwaveL(ampsStimL == x),'omitnan'),ampsStimLU);
+    % compute average amplitudes
+    avgsHwave{leg} = arrayfun(@(x) ...
+        mean(ampsHwave{leg}(ampsStim{leg} == x),'omitnan'), ...
+        ampsStimU{leg});
+    avgsMwave{leg} = arrayfun(@(x) ...
+        mean(ampsMwave{leg}(ampsStim{leg} == x),'omitnan'), ...
+        ampsStimU{leg});
 
-% compute average H/M ratios
-ratioR = ampsHwaveR ./ ampsMwaveR;
-ratioL = ampsHwaveL ./ ampsMwaveL;
-avgsRatioR = arrayfun(@(x) mean(ratioR(ampsStimR == x),'omitnan'),ampsStimRU);
-avgsRatioL = arrayfun(@(x) mean(ratioL(ampsStimL == x),'omitnan'),ampsStimLU);
+    % compute average H/M ratios
+    ratios{leg} = ampsHwave{leg} ./ ampsMwave{leg};
+    avgsRatio{leg} = arrayfun(@(x) ...
+        mean(ratios{leg}(ampsStim{leg} == x),'omitnan'),ampsStimU{leg});
+end
 
 %% 12. Fit M- & H-Wave Recruitment Curves & Identify Experiment Stim. Amp.
-fit = Hreflex.fitCal({ampsStimR';ampsStimL'},amps(:,1:2));
+% a leg that was not stimulated has no data by design, so suppress the
+% expected warning about it
+warnState = warning('off','Hreflex:noLegData');
+fit = Hreflex.fitCal(cellfun(@(x) x(:),ampsStim(:), ...
+    'UniformOutput',false),amps(:,1:2));
+warning(warnState);
 
-I_fit = linspace(min(ampsStimR),max(ampsStimR),1000);   % fit intensities
-MR_fit = fit.M.modHyperbolic(fit.M.R.params,I_fit);     % right M-wave fit
-ML_fit = fit.M.modHyperbolic(fit.M.L.params,I_fit);     % left M-wave fit
-% find index at which peak of 3rd derivative of modified hyperbolic occurs
-[~,indR3] = findpeaks(diff(diff(diff(MR_fit))),'NPeaks',1);
-[~,indL3] = findpeaks(diff(diff(diff(ML_fit))),'NPeaks',1);
-intensityR3 = I_fit(indR3);
-intensityL3 = I_fit(indL3);
+threshFitR2 = 0.95; % minimum M-wave fit R^2 to trust the 3rd derivative
+for leg = 1:2                           % for each leg, ...
+    if ~isLegStim(leg)                  % if leg not being analyzed, ...
+        continue;                       % advance to next leg
+    end
+    idLeg = idsLegs{leg};
+    % fit intensities across this leg's own stimulation range
+    I_fit = linspace(min(ampsStim{leg}),max(ampsStim{leg}),1000);
+    M_fit = fit.M.modHyperbolic(fit.M.(idLeg).params,I_fit);
+    % find index at which peak of 3rd derivative of modified hyperbolic
+    % occurs
+    [~,ind3rdDeriv] = findpeaks(diff(diff(diff(M_fit))),'NPeaks',1);
 
-if fit.M.R.R2 > 0.95                            % if fit quality high, ...
-    % display stimulation current at which peak of third derivative occurs
-    fprintf(['Right leg M-wave fit R2: %0.2f > 0.95.\n3rd derivative ' ...
-        'current: %.1f mA.\n'],fit.M.R.R2,intensityR3);
-else                                            % otherwise, ...
-    warning(['Right leg M-wave fit R2: %0.2f < 0.95.\nUse old approach' ...
-        ' to select experiment stimulation current.\n'],fit.M.R.R2);
+    if fit.M.(idLeg).R2 > threshFitR2    % if fit quality high, ...
+        if isempty(ind3rdDeriv)          % if no peak in 3rd deriv., ...
+            warning(['%s M-wave fit R2: %0.2f > %0.2f, but its third ' ...
+                'derivative has no peak. Use old approach to select ' ...
+                'experiment stimulation current.\n'],namesLegs{leg}, ...
+                fit.M.(idLeg).R2,threshFitR2);
+        else    % otherwise, display stimulation current at which peak
+            % of third derivative occurs
+            fprintf(['%s M-wave fit R2: %0.2f > %0.2f.\n3rd ' ...
+                'derivative current: %.1f mA.\n'],namesLegs{leg}, ...
+                fit.M.(idLeg).R2,threshFitR2,I_fit(ind3rdDeriv));
+        end
+    else                                            % otherwise, ...
+        warning(['%s M-wave fit R2: %0.2f < %0.2f.\nUse old approach' ...
+            ' to select experiment stimulation current.\n'], ...
+            namesLegs{leg},fit.M.(idLeg).R2,threshFitR2);
+    end
 end
-if fit.M.L.R2 > 0.95
-    fprintf(['Left leg M-wave fit R2: %0.2f > 0.95.\n3rd derivative ' ...
-        'current: %.1f mA.\n'],fit.M.L.R2,intensityL3);
-else
-    fprintf(['Left leg M-wave fit R2: %0.2f < 0.95.\nUse old approach' ...
-        ' to select experiment stimulation current.\n'],fit.M.L.R2);
+
+%% 13. Plot the Noise Distributions for Each Analyzed Leg
+for leg = 1:2                           % for each leg, ...
+    if ~isLegStim(leg)                  % if leg not being analyzed, ...
+        continue;                       % advance to next leg
+    end
+    Hreflex.plotNoiseHistogram(ampsNoise{leg},namesLegs{leg},id, ...
+        trialNum,'pathFig',pathFigs);
 end
 
-%% 13. Plot the Noise Distributions for Both Legs
-Hreflex.plotNoiseHistogram(ampsNoiseR,'Right Leg',id,trialNum,pathFigs);
-Hreflex.plotNoiseHistogram(ampsNoiseL,'Left Leg',id,trialNum,pathFigs);
-
-%% 14. Plot Recruitment Curve for Both Legs
+%% 14. Plot Recruitment Curve for Each Analyzed Leg
 % compute four times noise floor (mean) to determine whether
 % to send participant home or not (at least one leg must exceed threshold)
-Hreflex.plotCal(ampsStimR,{ampsMwaveR;ampsHwaveR},'EMG Amplitude (mV)', ...
-    'Right Leg',id,trialNum,'fit',fit,'noise',mean(ampsNoiseR), ...
-    'pathFig',pathFigs);
-Hreflex.plotCal(ampsStimL,{ampsMwaveL;ampsHwaveL},'EMG Amplitude (mV)', ...
-    'Left Leg',id,trialNum,'fit',fit,'noise',mean(ampsNoiseL), ...
-    'pathFig',pathFigs);
+for leg = 1:2                           % for each leg, ...
+    if ~isLegStim(leg)                  % if leg not being analyzed, ...
+        continue;                       % advance to next leg
+    end
+    Hreflex.plotCal(ampsStim{leg},{ampsMwave{leg};ampsHwave{leg}}, ...
+        'EMG Amplitude (mV)',namesLegs{leg},id,trialNum,'fit',fit, ...
+        'noise',mean(ampsNoise{leg}),'pathFig',pathFigs);
+end
 
-%% 15. Plot Normalized Recruitment Curve for Both Legs
-Hreflex.plotCal(ampsStimR,{ampsMwaveR;ampsHwaveR},'Proportion M_{max}', ...
-    'Right Leg',id,trialNum,'fit',fit,'shouldNormalize',true, ...
-    'pathFig',pathFigs);
-Hreflex.plotCal(ampsStimL,{ampsMwaveL;ampsHwaveL},'Proportion M_{max}', ...
-    'Left Leg',id,trialNum,'fit',fit,'shouldNormalize',true, ...
-    'pathFig',pathFigs);
+%% 15. Plot Normalized Recruitment Curve for Each Analyzed Leg
+for leg = 1:2                           % for each leg, ...
+    if ~isLegStim(leg)                  % if leg not being analyzed, ...
+        continue;                       % advance to next leg
+    end
+    Hreflex.plotCal(ampsStim{leg},{ampsMwave{leg};ampsHwave{leg}}, ...
+        'Proportion M_{max}',namesLegs{leg},id,trialNum,'fit',fit, ...
+        'shouldNormalize',true,'pathFig',pathFigs);
+end
 
 %% 16. Plot Ratio of H-wave to M-wave amplitude
-Hreflex.plotCal(ampsStimR,{ratioR},'H:M Ratio','Right Leg',id,trialNum, ...
-    'pathFig',pathFigs);
-Hreflex.plotCal(ampsStimL,{ratioL},'H:M Ratio','Left Leg',id,trialNum, ...
-    'pathFig',pathFigs);
-
+for leg = 1:2                           % for each leg, ...
+    if ~isLegStim(leg)                  % if leg not being analyzed, ...
+        continue;                       % advance to next leg
+    end
+    Hreflex.plotCal(ampsStim{leg},ratios(leg),'H:M Ratio', ...
+        namesLegs{leg},id,trialNum,'pathFig',pathFigs);
+end
