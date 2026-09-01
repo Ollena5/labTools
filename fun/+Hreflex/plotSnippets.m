@@ -1,4 +1,5 @@
-function fig = plotSnippets(times,snippets,yLabels,titles,id,trialNum,path)
+function fig = plotSnippets(times, snippets, yLabels, titles, ...
+    id, trialNum, options)
 %PLOTSNIPPETS Plot H-reflex snippets with GRFs if available.
 %
 %   Plot the H-reflex snippets for desired muscles or forces (if desired)
@@ -29,10 +30,8 @@ function fig = plotSnippets(times,snippets,yLabels,titles,id,trialNum,path)
 %
 % See also HREFLEX.EXTRACTSNIPPETS, HREFLEX.COMPUTEAMPLITUDES.
 
+% TODO: adapt this function to work for generating any snippets plot
 
-if string(version('-release')) < "2019b" % if version older than 2019b, ...
-    error(['MATLAB version must support ''tiledlayout'' (R2019b or ' ...
-        'later.']);
 arguments
     times    (:,1) double
     snippets (2,3) cell
@@ -43,81 +42,87 @@ arguments
     options.pathFig (1,:) char = ''
 end
 
-% validate the size of 'snippets' and ensure it matches the expected format
-if size(snippets,1) ~= 2 || size(snippets,2) ~= 3
-    error('Expected `snippets` to be a 2x3 cell array.');
-end
-
-numSnipSamps = cellfun(@(x) size(x,2),snippets);
-numSnipSamps = reshape(numSnipSamps,1,[]);
-hasSameNumSamples = length(unique([numSnipSamps length(times)]));
-if ~hasSameNumSamples   % if not same number of samples for all arrays, ...
+%% Validate Input Dimensions
+% NOTE: an empty cell is a leg that was not stimulated, so its (absent)
+% sample count must not be compared against the snippet time vector
+isPresent    = ~cellfun(@isempty, snippets);
+numSnipSamps = cellfun(@(x) size(x, 2), snippets);
+numSnipSamps = reshape(numSnipSamps(isPresent), 1, []);
+numUniqueSampleCounts = length(unique([numSnipSamps length(times)]));
+if numUniqueSampleCounts > 1    % if sample counts differ across arrays, ...
     error('There are different numbers of samples across arrays.');
 end
-% TODO: ensure that there is at least one snippet
-% TODO: adapt this function to work for generating any snippets plot
 
-% ensure the number of titles and labels matches the number of tiles
-if all(cellfun(@isempty,snippets(:,2:3)))
-    numTiles = 2;           % right and left EMG
-else
-    numTiles = 4;           % right GRFs, left GRFs, right EMG, left EMG
-    if length(titles) ~= numTiles || length(yLabels) ~= numTiles
-        error('Mismatch between the number of tiles, titles, or yLabels.');
-    end
+% tile order is fixed: right GRFs, left GRFs, right EMG, left EMG, and
+% titles and y-axis labels are indexed by that fixed position so that a
+% leg without data can be skipped without renumbering the tiles that remain
+if length(titles) < 4 || length(yLabels) < 4
+    error('Mismatch between the number of tiles, titles, or yLabels.');
 end
 
-% create new figure - a vertically oriented tiled layout
-% ('Units','normalized','OuterPosition',UPDATETHIS)
-fig = figure;
-tl = tiledlayout(numTiles,1,'TileSpacing','tight','Padding','compact');
+%% Determine Which Tiles Have Data
+hasGRF = false(1, 2);
+hasEMG = false(1, 2);
+for leg = 1:2                   % for right and left leg, ...
+    hasGRF(leg) = isPresent(leg, 2) && isPresent(leg, 3);
+    hasEMG(leg) = isPresent(leg, 1);
+end
+if ~any(hasEMG)                 % if no leg has H-reflex snippets, ...
+    error('There are no H-reflex snippets to plot.');
+end
+numTiles = sum(hasGRF) + sum(hasEMG);
 
+%% Create Figure
+fig = figure;
+tl = tiledlayout(numTiles, 1, 'TileSpacing', 'tight', 'Padding', 'compact');
+
+%% Plot GRF Tiles
 % NOTE: assuming inputs in desired plot order from top to bottom
 % check for force data (columns 2 & 3) and plot combined GRFs if available
-if ~isempty(snippets{1,2}) && ~isempty(snippets{1,3})
-    nexttile;           % plot right leg ipsilateral and contralateral GRFs
+for leg = 1:2                   % for right and left leg, ...
+    if ~hasGRF(leg)             % if no GRF data for this leg, ...
+        continue;               % advance to next leg
+    end
+    nexttile;                   % plot ipsilateral and contralateral GRFs
     hold on;
-    plot(times,snippets{1,2},'LineWidth',1.5,'Color',[0.000 0.447 0.741]);
-    plot(times,snippets{1,3},'LineWidth',1.5,'Color',[0.850 0.325 0.098]);
-    title(titles{1});
-    ylabel(yLabels{1});
+    plot(times, snippets{leg,2}, 'LineWidth', 1.5, ...
+        'Color', [0.000 0.447 0.741]);
+    plot(times, snippets{leg,3}, 'LineWidth', 1.5, ...
+        'Color', [0.850 0.325 0.098]);
+    title(titles{leg});
+    ylabel(yLabels{leg});
     xlim([times(1) times(end)]);
     hold off;
 end
 
-if ~isempty(snippets{2,2}) && ~isempty(snippets{2,3})
-    nexttile;           % plot left leg ipsilateral and contralateral GRFs
-    hold on;
-    plot(times,snippets{2,2},'LineWidth',1.5,'Color',[0.000 0.447 0.741]);
-    plot(times,snippets{2,3},'LineWidth',1.5,'Color',[0.850 0.325 0.098]);
-    title(titles{2});
-    ylabel(yLabels{2});
-    xlim([times(1) times(end)]);
-    hold off;
-end
-
-ax = gobjects(1,2);         % initialize array of Axes objects
+%% Plot EMG Tiles
+ax = gobjects(1, sum(hasEMG));  % initialize array of Axes objects
+numAxes = 0;                % number of EMG tiles created so far
 % TODO: move y-axis limit code outside this function or make optional input
 % (e.g., which index to start from) for more flexibility
 indsYLims = times > 0.005;
 ymin = 0;                   % initialize minimum y-axis value to be 0
 ymax = 0;
-for ii = 1:2                % for each EMG H-reflex snippets array, ...
-    ax(ii) = nexttile;      % advance to next figure tile
+for leg = 1:2               % for each EMG H-reflex snippets array, ...
+    if ~hasEMG(leg)         % if no snippets for this leg, ...
+        continue;           % advance to next leg
+    end
+    numAxes = numAxes + 1;
+    ax(numAxes) = nexttile; % advance to next figure tile
     hold on;
-    xline(0,'k','LineWidth',2); % stimulation artifact alignment
+    xline(0, 'k', 'LineWidth', 2);  % stimulation artifact alignment
     % M-wave and H-wave range
     % TODO: update to accept as function input rather than hard-coding
-    xline(0.0045,'b','LineWidth',1.5);  % M-wave start: 4.5 ms after stim
-    xline(0.0200,'b','LineWidth',1.5);  % M-wave end: 20 ms    artifact
-    xline(0.0250,'g','LineWidth',1.5);  % H-wave start: 25 ms after stim
-    xline(0.0450,'g','LineWidth',1.5);  % H-wave end: 45 ms   artifact
-    plot(times,snippets{ii,1},'LineWidth',1.5);
+    xline(0.0045, 'b', 'LineWidth', 1.5);  % M-wave start: 4.5 ms after stim
+    xline(0.0200, 'b', 'LineWidth', 1.5);  % M-wave end: 20 ms after stim
+    xline(0.0250, 'g', 'LineWidth', 1.5);  % H-wave start: 25 ms after stim
+    xline(0.0450, 'g', 'LineWidth', 1.5);  % H-wave end: 45 ms after stim
+    plot(times, snippets{leg,1}, 'LineWidth', 1.5);
     hold off;
-    title(titles{ii+2}); % EMG titles are in positions 3 and 4
-    ylabel(yLabels{ii+2});
-    newYmin = min(snippets{ii,1}(:,indsYLims),[],'all');
-    newYmax = max(snippets{ii,1}(:,indsYLims),[],'all');
+    title(titles{leg+2}); % EMG titles are in positions 3 and 4
+    ylabel(yLabels{leg+2});
+    newYmin = min(snippets{leg,1}(:, indsYLims), [], 'all');
+    newYmax = max(snippets{leg,1}(:, indsYLims), [], 'all');
     if newYmin < ymin       % if minimum y-value less than previous, ...
         ymin = newYmin;     % update minimum y-axis value
     end
@@ -126,24 +131,24 @@ for ii = 1:2                % for each EMG H-reflex snippets array, ...
     end
 end
 
+%% Finalize Axes & Labels
 linkaxes(ax);
 xlim([times(1) times(end)]);
-ylim([ymin ymax]);
-
-xlabel(tl,'Time (s)');
-title(tl,sprintf('%s - Trial %s - H-Reflex Snippets',id,trialNum));
+if ymax > ymin              % if snippets span a nonzero range, ...
+    ylim([ymin ymax]);      % use the range across all plot legs
+end
 
 % TODO: should y-axis limits be the same in case of both legs present?
 % TODO: consider accepting labels as optional input argument
-% TODO: make work for either sample number or time
 % TODO: make figure title and filename optional inputs
+xlabel(tl, 'Time (s)');
+title(tl, sprintf('%s - Trial %s - H-Reflex Snippets', id, trialNum));
 
-if nargin == 7 && ~isempty(path)    % if figure saving path provided, ...
-    saveas(fig,fullfile(path, ...
-        sprintf('%s_HreflexSnippets_Trial%s.fig',id,trialNum)));
-    saveas(fig,fullfile(path, ...
-        sprintf('%s_HreflexSnippets_Trial%s.png',id,trialNum)));
+if ~isempty(options.pathFig)        % if figure saving path provided, ...
+    saveas(fig, fullfile(options.pathFig, ...
+        sprintf('%s_HreflexSnippets_Trial%s.fig', id, trialNum)));
+    saveas(fig, fullfile(options.pathFig, ...
+        sprintf('%s_HreflexSnippets_Trial%s.png', id, trialNum)));
 end
 
 end
-
