@@ -8,15 +8,13 @@
 % the Vicon Nexus sofware tools.
 
 % TODO:
-%   1. handle case of only stimulating one leg during a trial (i.e., only
-%   want to compute parameters and plot one leg)
-%   2. use the feature of the stimulator to set the current output
+%   1. use the feature of the stimulator to set the current output
 %   based on the voltage of the trigger pulse to eliminate the need for
 %   asking the user to input the stimulation amplitudes
-%   3. use the Vicon SDK to update the recruitment curve and ratio figures
+%   2. use the Vicon SDK to update the recruitment curve and ratio figures
 %   in real time (if possible)
-%   4. adaptively choose the next stimulation amplitude
-%   5. consider making each data retrieval its own function for modularity
+%   3. adaptively choose the next stimulation amplitude
+%   4. consider making each data retrieval its own function for modularity
 %   and easy access and use for future applications
 
 %% 1. Load the C3D File Data
@@ -63,38 +61,63 @@ prompt = { ...
     ['Use stimulation trigger pulse data to identify artifact peak ' ...
     'times? (''1'' = true (TM calibration where all triggers in Vicon ' ...
     'are valid and have a stim current written down), ''0'' = false)'], ...
-    'Enter the right leg stimulation amplitudes (numbers only):', ...
-    'Enter the left leg stimulation amplitudes (numbers only):', ...
-    ['Stimulation Artifact Threshold (V) (NOTE: only relevant if not ' ...
-    'using stim trigger pulse):'], ...
+    ['Enter the right leg stimulation amplitudes (numbers only; leave ' ...
+    'blank if the right leg was not stimulated):'], ...
+    ['Enter the left leg stimulation amplitudes (numbers only; leave ' ...
+    'blank if the left leg was not stimulated):'], ...
+    ['Stimulation Artifact Threshold (V) (quality control floor: a ' ...
+    'stimulus whose peak artifact is smaller is flagged, not ' ...
+    'discarded):'], ...
     ['Minimum Time Between Stimulation Pulses (s) (NOTE: only relevant' ...
-    ' if not using stim trigger pulse):']};
+    ' if not using stim trigger pulse):'], ...
+    'Muscle in which to measure the H-reflex (e.g., ''SOL''):', ...
+    ['Muscle in which to localize the stimulation artifact (e.g., ' ...
+    '''TAP''); falls back to the H-reflex muscle if not present:']};
 dlgtitle = 'H-Reflex Calibration Input';
-fieldsize = [1 200; 1 200; 1 200; 1 200; 1 200; 1 200];
+numPrompts = numel(prompt);
+fieldsize = repmat([1 200],numPrompts,1);
+
+% default recruitment curve of six stimuli at each of ten intensities
+ampsStimDefault = ['5 5 5 5 5 5 7 7 7 7 7 7 9 9 9 9 9 9 11 11 11 11 ' ...
+    '11 11 13 13 13 13 13 13 15 15 15 15 15 15 17 17 17 17 17 17 20 ' ...
+    '20 20 20 20 20 23 23 23 23 23 23 26 26 26 26 26 26'];
+% NOTE: a new prompt must be APPENDED to both lists so that a
+% configuration file saved by an earlier version of this script can be
+% padded with the current defaults (see below) rather than rejected by
+% 'inputdlg' for a length mismatch
+definputDefault = { ...
+    ['RTAP RTAD NA RPER RMG RLG RSOL LTAP LTAD LPER LMG LLG LSOL ' ...
+    'NA NA sync1'], ...                     muscle list
+    '1', ...                                should use stim trig pulse?
+    ampsStimDefault, ...                    right leg amplitudes
+    ampsStimDefault, ...                    left leg amplitudes
+    '0.0003', ...                           stim artifact threshold (V)
+    '1', ...                                min. time between stim. (s)
+    'SOL', ...                              H-reflex muscle
+    'TAP'};                               % stim artifact muscle
 
 % determine default input
 filesConf = dir(fullfile(pathFigs,[id 'Config*.mat']));
 fnamesConf = {filesConf.name};
 fnameConf = [id 'Config' trialNum '.mat'];
 if isempty(fnamesConf)              % if no configuration file exists, ...
-    definput = { ...                % use the default values for the input
-        ['RTAP RTAD NA RPER RMG RLG RSOL LTAP LTAD LPER LMG LLG LSOL ' ...
-        'NA NA sync1'], ...                     muscle list
-        '1', ...                                should use stim trig pulse?
-        ['5 5 5 5 5 5 7 7 7 7 7 7 9 9 9 9 9 9 11 11 11 11 11 11 13 13 ' ...
-        '13 13 13 13 15 15 15 15 15 15 17 17 17 17 17 17 20 20 20 20 ' ...
-        '20 20 23 23 23 23 23 23 26 26 26 26 26 26'], ...   right leg amps
-        ['5 5 5 5 5 5 7 7 7 7 7 7 9 9 9 9 9 9 11 11 11 11 11 11 13 13 ' ...
-        '13 13 13 13 15 15 15 15 15 15 17 17 17 17 17 17 20 20 20 20 ' ...
-        '20 20 23 23 23 23 23 23 26 26 26 26 26 26'], ...   left leg amps
-        '0.0003', ...                           stim artifact threshold (V)
-        '5'};                                 % min. time between stim. (s)
+    definput = definputDefault;     % use the default values for the input
 elseif any(strcmpi(fnamesConf,fnameConf))   % if current trial file, ...
     load(fullfile(pathFigs,fnameConf),'answer');
     definput = answer;                      % set default input to config
 else                                        % otherwise, ...
     load(fullfile(pathFigs,fnamesConf{end}),'answer');
     definput = answer;                      % use most recent trial config
+end
+
+% a configuration file saved before a prompt was added is shorter than the
+% current prompt list, which 'inputdlg' rejects outright; pad it with the
+% current defaults (and drop any extra entries from a newer version)
+if numel(definput) < numPrompts
+    definput(numel(definput)+1:numPrompts) = ...
+        definputDefault(numel(definput)+1:numPrompts);
+elseif numel(definput) > numPrompts
+    definput = definput(1:numPrompts);
 end
 
 % retrieve input from experimenter
@@ -105,10 +128,13 @@ end
 
 % if config file does not exist (save new file) or if it does exist but ...
 % has changed (overwrite previous file), ...
+% NOTE: only 'answer' is ever loaded back, so the analog data and the BTK
+% acquisition handle are deliberately not saved: they added ~200 MB per
+% trial, and the handle is meaningless once reloaded in a new session
 if ~isfile(fullfile(pathFigs,fnameConf)) || ...
         (isfile(fullfile(pathFigs,fnameConf)) && ~isequal(definput,answer))
-    save(fullfile(pathFigs,fnameConf),'answer','analogs','analogsInfo', ...
-        'H','id','pathTr','pathFigs','trialNum','filenameWExt','fnameConf');
+    save(fullfile(pathFigs,fnameConf),'answer','id','pathTr', ...
+        'pathFigs','trialNum','filenameWExt','fnameConf');
 end
 
 %% 3. Extract User Input Parameters
@@ -119,19 +145,31 @@ if isempty(EMGList1)                % if no EMG labels input, ...
 end
 % currently using below as a proxy for standing vs. walking trials
 shouldUseStimTrig = logical(str2double(answer{2}));
-ampsStimR = str2num(answer{3}); %#ok<ST2NM>
-ampsStimL = str2num(answer{4}); %#ok<ST2NM>
+% NOTE: an empty amplitude list means that leg was not stimulated
+ampsStim = {str2num(answer{3}), str2num(answer{4})}; %#ok<ST2NM>
 threshStimArtifact = str2double(answer{5});% stimulation artifact threshold
 threshStimTimeSep = str2double(answer{6}); % time between stim
+muscleHreflex = upper(strtrim(answer{7})); % muscle to measure H-reflex in
+muscleArtifact = upper(strtrim(answer{8}));% muscle to localize artifact in
 
-numStimR = numel(ampsStimR);   % number of times stimulated right leg
-numStimL = numel(ampsStimL);   % number of times stimulated left leg
+idsLegs   = {'R','L'};              % leg identifiers (right = 1, left = 2)
+namesLegs = {'Right Leg','Left Leg'};
+numStim   = cellfun(@numel,ampsStim);   % number of stimuli per leg
+isLegStim = numStim > 0;                % was each leg stimulated?
+if ~any(isLegStim)                      % if neither leg stimulated, ...
+    error(['No stimulation amplitudes have been provided for either ' ...
+        'leg. At least one leg must have been stimulated.']);
+end
 
 %% Provide Summary of Extracted Data
 fprintf('Participant/Session ID: %s\n',id);
 fprintf('Trial Number: %s\n',trialNum);
-fprintf('Number of Right Leg Stimulations: %d\n',numStimR);
-fprintf('Number of Left Leg Stimulations: %d\n',numStimL);
+fprintf('H-Reflex Muscle: %s\n',muscleHreflex);
+fprintf('Stimulation Artifact Muscle: %s\n',muscleArtifact);
+for leg = 1:2                           % for each leg, ...
+    fprintf('Number of %s Stimulations: %d\n',namesLegs{leg}, ...
+        numStim(leg));
+end
 fprintf('Artifact Threshold (V): %.4f\n',threshStimArtifact);
 fprintf('Minimum Time Between Stimuli (s): %.2f\n',threshStimTimeSep);
 disp('Data extraction completed successfully.');
@@ -142,6 +180,11 @@ disp('Data extraction completed successfully.');
 % NOTE: thigh and hip muscles have been removed since not currently
 % relevant for the Spinal Adaptation project
 orderedMuscleList = {'PER','TA','TAP','TAD','SOL','MG','LG'};
+if ~ismember(muscleHreflex,orderedMuscleList) || ...
+        ~ismember(muscleArtifact,orderedMuscleList)
+    error(['The H-reflex and stimulation artifact muscles must each ' ...
+        'be one of: %s.'],strjoin(orderedMuscleList,', '));
+end
 orderedEMGList = {};
 for ii = 1:length(orderedMuscleList)
     orderedEMGList{end+1} = ['R' orderedMuscleList{ii}];
