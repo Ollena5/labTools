@@ -294,6 +294,8 @@ end
 clear relData
 
 %% 6. Retrieve H-Reflex Stimulator Pin Data If It Exists
+hasStimTrig = false;        % assume no trigger pulse data until found
+HreflexStimPin = [];
 if shouldUseStimTrig    % if stimulation trigger data should be used, ...
     % NOTE: the below code block is copied from loadTrials (implemented by SL)
     relData = [];
@@ -322,10 +324,26 @@ if shouldUseStimTrig    % if stimulation trigger data should be used, ...
             end
         end
     else
-        warning(['User indicated stimulation trigger data should be ' ...
-            'used to identify the artifact peak times, but no trigger ' ...
-            'pulse data is present.']);
-        HreflexStimPin = [];
+        % NOTE: without the trigger pulses the artifact must be found by
+        % a blind search over the entire trial, which is far less
+        % accurate than searching a window anchored to a known pulse.
+        % Make the experimenter decide rather than silently degrading:
+        % the 2026-08-21 SpinalAdapt dry run's C3D had no trigger
+        % channels and the resulting fallback went unnoticed.
+        msgNoTrig = ['User indicated stimulation trigger data should ' ...
+            'be used to identify the artifact peak times, but no ' ...
+            'trigger pulse data is present in this trial. Artifact ' ...
+            'identification will be considerably less accurate ' ...
+            'without it. Check the Vicon Nexus analog device ' ...
+            'configuration for the stimulator trigger sync channels.'];
+        warning(msgNoTrig);
+        btnAbort = 'Abort (fix Nexus device config)';
+        btnCont  = 'Continue with threshold detection';
+        choice = questdlg(msgNoTrig,'Missing Stimulation Trigger Data', ...
+            btnAbort,btnCont,btnAbort);
+        if ~strcmp(choice,btnCont)  % if should not continue script, ...
+            return;                 % stop execution to fix the config
+        end
     end
 end
 
@@ -365,16 +383,53 @@ period = EMG.sampPeriod;                    % sampling period
 threshSamps = threshStimTimeSep / period;   % convert to samples
 
 %% 8. Identify Locations of the Stimulation Artifacts
-% TODO: update to work in case of only one leg
-% extract relevant EMG data
-[EMG_RTAP,times] = EMG.getDataAsVector('RTAP'); % time array for plotting
-EMG_LTAP = EMG.getDataAsVector('LTAP'); % TA proximal is for stim artifact
-EMG_RH = EMG.getDataAsVector('RSOL');
-EMG_LH = EMG.getDataAsVector('LSOL');   % H-reflex muscle (usually Soleus)
+times = EMG.Time;                       % time array for plotting
+% resolve the EMG channel for each leg from the selected muscles; a
+% channel that is absent or entirely unavailable (all NaN after the zero
+% samples were removed above) counts as missing
+EMGArtifact    = cell(1,2);
+EMGHreflex     = cell(1,2);
+labelsArtifact = cell(1,2);
+for leg = 1:2                           % for each leg, ...
+    if ~isLegStim(leg)                  % if leg was not stimulated, ...
+        continue;                       % advance to next leg
+    end
+    labelHreflex  = [idsLegs{leg} muscleHreflex];
+    labelArtifact = [idsLegs{leg} muscleArtifact];
 
-% if missing any of the EMG signals used below, ...
-if any(cellfun(@isempty,{EMG_RTAP,EMG_LTAP,EMG_RH,EMG_LH}))
-    error('Missing one or more EMG signals.');
+    if EMG.isaLabel(labelHreflex)       % if H-reflex channel present, ...
+        EMGHreflex{leg} = EMG.getDataAsVector(labelHreflex);
+    end
+    if all(isnan(EMGHreflex{leg}))      % if channel has no data, ...
+        EMGHreflex{leg} = [];           % treat it as missing
+    end
+
+    if EMG.isaLabel(labelArtifact)      % if artifact channel present, ...
+        EMGArtifact{leg} = EMG.getDataAsVector(labelArtifact);
+    end
+    if all(isnan(EMGArtifact{leg}))
+        EMGArtifact{leg} = [];
+    end
+    if isempty(EMGArtifact{leg})        % if no artifact muscle EMG, ...
+        EMGArtifact{leg} = EMGHreflex{leg};     % use H-reflex muscle
+        labelArtifact    = labelHreflex;
+        fprintf(['%s: no %s EMG data; localizing the stimulation ' ...
+            'artifact in %s instead.\n'],namesLegs{leg}, ...
+            [idsLegs{leg} muscleArtifact],labelHreflex);
+    end
+    labelsArtifact{leg} = labelArtifact;
+
+    if isempty(EMGHreflex{leg})         % if no H-reflex muscle EMG, ...
+        warning('No %s EMG data; skipping the %s.',labelHreflex, ...
+            lower(namesLegs{leg}));
+        isLegStim(leg) = false;         % cannot analyze this leg
+    end
+end
+
+if ~any(isLegStim)      % if no leg has both stim amplitudes and EMG, ...
+    error(['There is no leg with both stimulation amplitudes and EMG ' ...
+        'data. It is not possible to generate H-reflex recruitment ' ...
+        'curves.']);
 end
 
 % TODO: implement check for if forces should be used in case of standing on
@@ -396,13 +451,10 @@ end
 % pulse but participant will not have been stimulated)
 % if there is stimulation trigger pulse data and it should be used to
 % identify the locations of the artifact peaks, ...
+indsStimArtifact = cell(2,1);
+isWeakArtifact   = cell(2,1);
 if shouldUseStimTrig && hasStimTrig
     % extract all stimulation trigger data for each leg
-    stimTrigR = HreflexStimPin.getDataAsVector( ...
-        'Stimulator_Trigger_Sync_Right_Stimulator');
-    stimTrigL = HreflexStimPin.getDataAsVector( ...
-        'Stimulator_Trigger_Sync_Left__Stimulator');
-
     indsStimArtifact = Hreflex.extractStimArtifactIndsFromTrigger( ...
         times, {EMG_RTAP, EMG_LTAP}, {stimTrigR, stimTrigL});
     locsR = indsStimArtifact{1};
@@ -416,6 +468,13 @@ if shouldUseStimTrig && hasStimTrig
 
     Hreflex.plotStimArtifactPeaks(times,{EMG_RTAP,EMG_LTAP}, ...
         {locsR,locsL},id,trialNum,pathFigs);
+    stimTrig = { ...
+        HreflexStimPin.getDataAsVector( ...
+        'Stimulator_Trigger_Sync_Right_Stimulator'), ...
+        HreflexStimPin.getDataAsVector( ...
+        'Stimulator_Trigger_Sync_Left__Stimulator')};
+    stimTrig(~isLegStim) = {[]};    % ignore any leg not being analyzed
+
 else
     warning(['No stimulation trigger signal being used. Artifact ' ...
         'identification may not be as accurate.']);
@@ -445,22 +504,24 @@ end
 % TODO: move the finding of unique amplitudes and indices up here
 % TODO: plot snippets for a given amplitude for each leg together
 tileTitles = {'Right & Left Fz - Right Stim', ...
-    'Left & Right Fz - Left Stim','Right Sol','Left Sol'};
+    'Left & Right Fz - Left Stim', ...
+    ['Right ' muscleHreflex],['Left ' muscleHreflex]};
 yLabels = {'Force (N)','Force (N)','Raw EMG (V)','Raw EMG (V)'};
 Hreflex.plotSnippets(timesSnippet,snippets,yLabels,tileTitles, ...
     id,trialNum,pathFigs);      % plot all snippets for visual verification
 
 %% 10. Compute M- & H-wave Amplitudes
 % TODO: reject measurements if GRF reveals not in single stance
+% a leg that was not stimulated has no snippets by design, so suppress
+% the expected warning about it rather than alarm the experimenter
+warnState = warning('off','Hreflex:noSnippets');
 amps = Hreflex.computeAmplitudes(snippets(:,1));        % EMG snippets only
+warning(warnState);
 amps = cellfun(@(x) 1000.*x,amps,'UniformOutput',false);% convert V to mV
 
-ampsMwaveR = amps{1,1}; % unpack amplitudes for readability
-ampsHwaveR = amps{1,2};
-ampsNoiseR = amps{1,3};
-ampsMwaveL = amps{2,1};
-ampsHwaveL = amps{2,2};
-ampsNoiseL = amps{2,3};
+ampsMwave = amps(:,1);  % unpack amplitudes by leg for readability
+ampsHwave = amps(:,2);
+ampsNoise = amps(:,3);
 
 %% 11. Compute Means & Ratios for Unique Stimulation Amplitudes
 % TODO: delete this block if variables not used anywhere
