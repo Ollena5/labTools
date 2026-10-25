@@ -158,7 +158,8 @@ c3d2mat
       ├── determineRefLeg
       ├── getTrialMetaData
       ├── loadTrials               % Load C3D into rawTrialData
-      │    ├── btkReadAcquisition  % BTK (external)
+      │    ├── readC3DAcquisition  % BTK, or ezc3d if no BTK binary
+      │    │                       % (getC3DReader; BTK-format output)
       │    ├── processGRFData      % GRF loading and offset calibration
       │    ├── syncEMGData         % EMG inter-PC synchronization
       │    └── rawTrialData(...)
