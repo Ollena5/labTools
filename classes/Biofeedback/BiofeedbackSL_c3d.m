@@ -31,8 +31,8 @@ classdef BiofeedbackSL_c3d
     %   saveit             - save the instance as a MAT file
     %
     % Toolbox Dependencies: Signal Processing Toolbox (findpeaks); also
-    % needs BTK
-    %   (btkReadAcquisition) to read the C3D files
+    % needs ezc3d
+    %   (readC3DAcquisition) to read the C3D files
     %
     % See also BIOFEEDBACKSL, BIOFEEDBACKSLBF_PERCP.
 
@@ -271,8 +271,8 @@ classdef BiofeedbackSL_c3d
             %   none
             %
             % Toolbox Dependencies: Signal Processing Toolbox (findpeaks);
-            % also needs BTK
-            %   (btkReadAcquisition) to read the C3D files
+            % also needs ezc3d
+            %   (readC3DAcquisition) to read the C3D files
             %
             % See also EDITTRIALLIST, SAVEIT.
 
@@ -307,10 +307,10 @@ classdef BiofeedbackSL_c3d
                         %save time...
                         if length(this.data) < z
                             disp('Parsing data...');
-                            H = btkReadAcquisition(tempname);
-                            [analogs, ~] = btkGetAnalogs(H);
-                            [markers, markerinfo] = btkGetMarkers(H);
-                            btkCloseAcquisition(H);
+                            H = readC3DAcquisition(tempname);
+                            [analogs, ~] = getC3DAnalogs(H);
+                            [markers, markerinfo] = getC3DMarkers(H);
+                            closeC3DAcquisition(H);
 
                             if markerinfo.frequency == 120
                                 step  = 1/1080;

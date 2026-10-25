@@ -36,7 +36,7 @@ parameters or saved files, so it needs a before/after comparison per
 | 7 | Small `experimentData` fixture (< 100 MB) | 4 | M | High | Low |
 | 8 | `matlab.unittest` suite from the `testing/` scripts | 4 | L | High | Low |
 | 9 | CI running `codeIssues` on R2021a and the current release | 4 | M | Medium | Low |
-| 10 | Ship or document the Windows BTK `.mexw64` | 6 | S | Medium | Low |
+| 10 | Delete the uncalled `fun/ext/BTK/` after lab sign-off | 6 | S | Low | Low |
 
 ## 1. Data Safety (Output Overwrites)
 Write sites and current overwrite behavior: [DATA_OUTPUTS.md](DATA_OUTPUTS.md).
@@ -130,7 +130,7 @@ each has a `TODO`/`FIXME` in the code.
 | Item | Effort | Value | Risk |
 |---|---|---|---|
 | Add `.gitattributes` (`*.m text eol=crlf` or `text=auto`) and renormalize the 36 CRLF-in-index files in one isolated commit. | S | Medium | Low |
-| Ship the Windows BTK `.mexw64` (now only on `Z:\Nathan\btk`) or document the install step in README. | S | Medium | Low |
+| Delete `fun/ext/BTK/` after lab sign-off: nothing calls it, since ezc3d (`fun/ext/ezc3d/`) reads all C3D files. | S | Low | Low |
 | Toolbox audit with `requiredFilesAndProducts` (full depth) across the repo; list required toolboxes in README. Several doc blocks' `Toolbox Dependencies` lines came from an analyzer that missed callee use (e.g. `lowpassfiltering2` -> `butter`). | M | Medium | Low |
 | Untrack the generated `doc/` HTML (793 files) and build it in CI or on demand. | S | Low | Low |
 

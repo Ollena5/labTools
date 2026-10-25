@@ -1,9 +1,9 @@
 function [analogs, analogsInfo] = getC3DAnalogs(acq)
 %GETC3DANALOGS Analog channels of a C3D file, in btkGetAnalogs format.
 %
-%   With BTK this simply calls btkGetAnalogs. With ezc3d it builds the
-% identical output, following BTKCore's C3D reader (Code/IO/
-% btkC3DFileIO.cpp) and MEX wrapper (Wrapping/Matlab/btkMXAnalog.cxx):
+%   Builds the output the former btkGetAnalogs returned from the ezc3d
+% data, following BTKCore's C3D reader (Code/IO/btkC3DFileIO.cpp) and
+% MEX wrapper (Wrapping/Matlab/btkMXAnalog.cxx):
 %     - values are (raw - OFFSET) * SCALE * GEN_SCALE, as returned by
 %       ezc3dRead (ezc3d >= 1.7.2; earlier releases mis-scaled floats)
 %     - info.scale stores SCALE * GEN_SCALE (GEN_SCALE = 0 is read as 1)
@@ -21,18 +21,13 @@ function [analogs, analogsInfo] = getC3DAnalogs(acq)
 %                   (struct of unit strings per channel)
 %
 %   Toolbox Dependencies:
-%     BTK or ezc3d (see READC3DACQUISITION)
+%     ezc3d (see READC3DACQUISITION)
 %
 %   See also READC3DACQUISITION, GETC3DMARKERS, C3DLABELSTOFIELDNAMES,
 %   BTKGETANALOGS.
 
 arguments
     acq (1,1) struct
-end
-
-if strcmp(acq.reader, 'btk')
-    [analogs, analogsInfo] = btkGetAnalogs(acq.handle);
-    return
 end
 
 %% Read Channel Parameters

@@ -32,7 +32,7 @@ through stride-indexed adaptation metrics and group statistics.
 ## Requirements
 
 - **MATLAB R2021a or later** (tested through current release)
-- [Biomechanics Toolkit (BTK)][btk] — required to read `.c3d` files
+- [ezc3d](https://github.com/pyomeca/ezc3d) reads `.c3d` files (bundled)
 - A Vicon Nexus motion capture system is assumed for data collection,
   but the processing pipeline can be adapted to other sources
 
@@ -48,7 +48,8 @@ through stride-indexed adaptation metrics and group statistics.
    addpath(genpath('/path/to/labTools'));
    ```
 
-2. Install BTK and add it to your MATLAB path as well.
+2. Nothing else to install: the ezc3d binaries are in `fun/ext/ezc3d/`.
+   If macOS blocks them, run `xattr -dr com.apple.quarantine fun/ext/ezc3d`.
 
 3. To import a motion capture session, run:
 
@@ -79,15 +80,16 @@ fully functional copy of the repository.
 
 | Library | Path | License | Purpose |
 |---|---|---|---|
-| [BTK][btk] | `fun/ext/BTK/` | LGPLv3 | C3D file I/O |
+| [ezc3d](https://github.com/pyomeca/ezc3d) | `fun/ext/ezc3d/` | MIT | C3D file I/O (MEX binaries only) |
+| [BTK][btk] | `fun/ext/BTK/` | BSD-3-Clause | Former C3D reader, no longer called |
 | [pi-tools][pitools] | `fun/ext/pitools/` | GPL v2 | Signal processing, utilities |
 | [markerDataCleaning][mdc] | `fun/ext/markerDataCleaning/` | See ATTRIBUTION | Marker outlier detection |
 
-BTK is included unmodified. The pi-tools and markerDataCleaning
-functions were originally authored by members of the SML Laboratory and
-are maintained as part of labTools; they may diverge from the original
-repositories over time. The ATTRIBUTION files record the upstream commit
-hashes at the time of initial incorporation. See
+BTK and the ezc3d binaries are included unmodified. The pi-tools and
+markerDataCleaning functions were originally authored by members of the
+SML Laboratory and are maintained as part of labTools; they may diverge
+from the original repositories over time. The ATTRIBUTION files record
+the upstream commit hashes at the time of initial incorporation. See
 `fun/ext/pitools/LICENSE` for the pi-tools GPL v2 license.
 
 [pitools]: https://github.com/pabloi/pi-tools
@@ -120,7 +122,7 @@ labTools/
 │   ├── +dataMotion/           % Namespace: marker/segment utilities
 │   ├── +Hreflex/              % Namespace: H-reflex analysis
 │   ├── +utils/                % Namespace: general utilities
-│   └── ext/                   % Vendored third-party libraries (BTK, pitools, etc.)
+│   └── ext/                   % Vendored third-party libraries (ezc3d, BTK, pitools, etc.)
 ├── gui/
 │   ├── importc3d/             % c3d2mat and GetInfoGUI (primary entry point)
 │   │   └── ExpDetails/        % Experiment descriptions
@@ -158,8 +160,8 @@ c3d2mat
       ├── determineRefLeg
       ├── getTrialMetaData
       ├── loadTrials               % Load C3D into rawTrialData
-      │    ├── readC3DAcquisition  % BTK, or ezc3d if no BTK binary
-      │    │                       % (getC3DReader; BTK-format output)
+      │    ├── readC3DAcquisition  % ezc3d (getC3DReader); returns BTK's
+      │    │                       % old struct layout
       │    ├── processGRFData      % GRF loading and offset calibration
       │    ├── syncEMGData         % EMG inter-PC synchronization
       │    └── rawTrialData(...)

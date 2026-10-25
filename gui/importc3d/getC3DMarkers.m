@@ -1,9 +1,9 @@
 function [markers, markersInfo] = getC3DMarkers(acq)
 %GETC3DMARKERS Marker trajectories of a C3D file, in btkGetMarkers format.
 %
-%   With BTK this simply calls btkGetMarkers. With ezc3d it builds the
-% identical output, following BTKCore's C3D reader (Code/IO/
-% btkC3DFileIO.cpp) and MEX wrapper (Wrapping/Matlab/btkGetMarkers.cpp):
+%   Builds the output the former btkGetMarkers returned from the ezc3d
+% data, following BTKCore's C3D reader (Code/IO/btkC3DFileIO.cpp) and
+% MEX wrapper (Wrapping/Matlab/btkGetMarkers.cpp):
 %     - markers are the POINT channels not listed in POINT:ANGLES,
 %       FORCES, MOMENTS, POWERS, SCALARS or REACTIONS (Vicon model
 %       outputs), in file order
@@ -21,18 +21,13 @@ function [markers, markersInfo] = getC3DMarkers(acq)
 %                   (struct with the single field ALLMARKERS)
 %
 %   Toolbox Dependencies:
-%     BTK or ezc3d (see READC3DACQUISITION)
+%     ezc3d (see READC3DACQUISITION)
 %
 %   See also READC3DACQUISITION, GETC3DANALOGS, C3DLABELSTOFIELDNAMES,
 %   BTKGETMARKERS.
 
 arguments
     acq (1,1) struct
-end
-
-if strcmp(acq.reader, 'btk')
-    [markers, markersInfo] = btkGetMarkers(acq.handle);
-    return
 end
 
 %% Read Point Parameters

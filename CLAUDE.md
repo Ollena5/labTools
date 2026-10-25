@@ -42,7 +42,7 @@ Style: `.claude/rules/matlab-style.md` (loads for `.m` files).
   not permission. Leave changes uncommitted for the user to review.
 - Do not rename or delete existing files, functions, or commented-out
   code without the user's approval (lab sign-off pending).
-- Never edit `fun/ext/BTK/`: it is unmodified third-party code.
+- Never edit `fun/ext/BTK/` or `fun/ext/ezc3d/` (unmodified third-party).
 
 ## How to Verify
 There is no automated suite: follow [TESTING.md](TESTING.md) (test

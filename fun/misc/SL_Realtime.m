@@ -15,7 +15,7 @@
 %   3. Step time
 %
 % Toolbox Dependencies:
-%   None (needs the Vicon Nexus SDK and BTK)
+%   None (needs the Vicon Nexus SDK and ezc3d)
 %
 % See also SL_REALTIMEALPHA.
 
@@ -30,10 +30,10 @@ filename = [filename '.c3d'];
 % commandwindow()
 % [filename,path] = uigetfile('*.c3d', 'Select the c3d file:');
 
-H = btkReadAcquisition([path filename]);
+H = readC3DAcquisition([path filename]);
 
 % use same method as labTools to determine analog data
-[analogs, analogsInfo] = btkGetAnalogs(H);
+[analogs, analogsInfo] = getC3DAnalogs(H);
 
 relData     = [];
 forceLabels = {};
@@ -88,7 +88,7 @@ forces = relData;
 clear analogs* relData
 
 %% Load Marker Data
-[markers, markerInfo] = btkGetMarkers(H);
+[markers, markerInfo] = getC3DMarkers(H);
 relData    = [];
 fieldList  = fields(markers);
 markerList = {};

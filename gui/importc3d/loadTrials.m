@@ -3,8 +3,7 @@ function trials = loadTrials(trialMD, fileList, secFileList, info)
 %
 %   Reads kinematic, force, and EMG data from C3D files for each trial
 % in the experimental session. For each trial, the function imports
-% analog and marker data via the Biomechanics Toolkit (BTK), or ezc3d on
-% platforms without BTK binaries (see readC3DAcquisition), delegates
+% analog and marker data via ezc3d (see readC3DAcquisition), delegates
 % ground reaction force processing to processGRFData, synchronizes and
 % sorts EMG channels via syncEMGData, processes accelerometer data, and
 % packages everything into a rawTrialData object.
@@ -30,10 +29,7 @@ function trials = loadTrials(trialMD, fileList, secFileList, info)
 %            corresponds to trial number
 %
 % Toolbox Dependencies:
-%   BTK - Biomechanics Toolkit (default C3D reader; external
-%   dependency)
-%   ezc3d - pyomeca C3D reader (used only where BTK has no binary,
-%   e.g. Apple Silicon Macs)
+%   ezc3d - pyomeca C3D reader (fun/ext/ezc3d)
 %
 % See also RAWTRIALDATA, LOADSUBJECT, GETTRIALMETADATA, SYNCEMGDATA,
 % PROCESSGRFDATA, READC3DACQUISITION.
@@ -98,8 +94,8 @@ for tr = trialNums                      % for each trial, ...
         orderedEMGList orientation trials sessionHasPC2 trialNums ...
         accDownsampleFactor rateRatioTolerance;
 
-    % Import C3D data using BTK (Biomechanics Toolkit), or ezc3d where
-    % BTK cannot run; both return BTK-format structs
+    % Import C3D data using ezc3d; the structs have the layout BTK
+    % returned
     H = readC3DAcquisition([fileList{tr} '.c3d']);
     [analogs, analogsInfo] = getC3DAnalogs(H);
 

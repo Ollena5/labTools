@@ -1,9 +1,9 @@
 function closeC3DAcquisition(acq)
 %CLOSEC3DACQUISITION Release a C3D acquisition opened by READC3DACQUISITION.
 %
-%   With BTK this calls btkCloseAcquisition, freeing the C++ memory BTK
-% holds for the acquisition (MATLAB does not release it on its own).
-% ezc3d data are ordinary MATLAB variables, so nothing is needed there.
+%   Kept from the BTK version, where it freed the C++ memory BTK held
+% for the acquisition. ezc3d data are ordinary MATLAB variables, so
+% there is nothing to release and this does nothing.
 %
 %   Inputs:
 %     acq - struct returned by READC3DACQUISITION
@@ -12,16 +12,12 @@ function closeC3DAcquisition(acq)
 %     none
 %
 %   Toolbox Dependencies:
-%     BTK or ezc3d (see READC3DACQUISITION)
+%     ezc3d (see READC3DACQUISITION)
 %
-%   See also READC3DACQUISITION, BTKCLOSEACQUISITION.
+%   See also READC3DACQUISITION.
 
 arguments
-    acq (1,1) struct
-end
-
-if strcmp(acq.reader, 'btk') && ~isempty(acq.handle)
-    btkCloseAcquisition(acq.handle);
+    acq (1,1) struct %#ok<INUSA>
 end
 
 end
