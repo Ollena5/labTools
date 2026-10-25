@@ -270,6 +270,16 @@ This saves substantial time during iterative testing.
 
 ---
 
+## C3D Reader Check
+
+After changing the C3D reader (`gui/importc3d/readC3DAcquisition.m`,
+`getC3DAnalogs.m`, `getC3DMarkers.m`) or the `fun/ext/ezc3d/` binaries,
+run `checkC3DReader('<file>.c3d')` from
+[testing/c3dReader/](testing/c3dReader/checkC3DReader.m) before and
+after, save each output, and diff the `DATA` lines (sizes, rates, and
+SHA-256 digests of labels, units and samples). The `ENV` lines name the
+computer and are expected to differ.
+
 ## Feature Tests
 
 Test recipes for handrail, stride-quality, H-reflex, and SpinalAdapt

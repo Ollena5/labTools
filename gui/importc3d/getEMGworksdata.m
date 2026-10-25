@@ -20,7 +20,7 @@ function [analogsNexus,EMGList,relData,relData2,secondFile,analogsInfo2, ...
 %   NexusfileList - trial file path without '.c3d', ending in 'TrialNN'
 %
 % Outputs:
-%   analogsNexus   - analog channels of the Nexus C3D (btkGetAnalogs)
+%   analogsNexus   - analog channels of the Nexus C3D (getC3DAnalogs)
 %   EMGList        - labels of the channels returned (PC 1, then PC 2)
 %   relData        - PC 1 EMG samples, one column per used sensor
 %   relData2       - PC 2 EMG samples ([] if no second file)
@@ -33,7 +33,7 @@ function [analogsNexus,EMGList,relData,relData2,secondFile,analogsInfo2, ...
 %
 % Toolbox Dependencies: None
 %
-% See also GETEMGWORKSDATAACC, LOADTRIALS, BTKGETANALOGS.
+% See also GETEMGWORKSDATAACC, LOADTRIALS, GETC3DANALOGS.
 
 %% Check for a second file
 if isempty(secFileList)
@@ -232,8 +232,8 @@ end
 
 
 %%
-H = btkReadAcquisition([NexusfileList '.c3d']);
-[analogsNexus,analogsInfoNexus] = btkGetAnalogs(H);
+H = readC3DAcquisition([NexusfileList '.c3d']); % read with ezc3d
+[analogsNexus,analogsInfoNexus] = getC3DAnalogs(H);
 analogsInfoNexus = analogsInfo;
 
 

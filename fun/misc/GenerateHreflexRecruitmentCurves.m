@@ -69,9 +69,9 @@ if ~isfolder(pathFigs)          % if figure folder doesn't exist, ...
     mkdir(pathFigs);            % make it
 end
 
-H = btkReadAcquisition(fullfile(pathTr,filenameWExt));    % load C3D data
+H = readC3DAcquisition(fullfile(pathTr,filenameWExt));    % load C3D data
 % using the same method as labtools, retrieve the analog data
-[analogs,analogsInfo] = btkGetAnalogs(H);
+[analogs,analogsInfo] = getC3DAnalogs(H);
 
 %% 2. Retrieve Existing Configuration or User Input Data
 prompt = { ...
@@ -148,7 +148,7 @@ end
 
 % if config file does not exist (save new file) or if it does exist but ...
 % has changed (overwrite previous file), ...
-% NOTE: only 'answer' is ever loaded back, so the analog data and the BTK
+% NOTE: only 'answer' is ever loaded back, so the analog data and the C3D
 % acquisition handle are deliberately not saved: they added ~200 MB per
 % trial, and the handle is meaningless once reloaded in a new session
 if ~isfile(fullfile(pathFigs,fnameConf)) || ...

@@ -315,7 +315,7 @@ Evidence: `git grep -w` over tracked .m/.md/.mlx/.txt (excluding doc/ and the fi
 
 | file | evidence | note |
 |---|---|---|
-| fun/misc/SL_Realtime.m, SL_RealtimeAlpha.m | no reference | Nexus-pipeline scripts (zero callers by design); both save `<date>_<trial>_SL_Realtime.mat`, so Alpha overwrites Realtime's file name; needs ViconNexus + BTK. C4 |
+| fun/misc/SL_Realtime.m, SL_RealtimeAlpha.m | no reference | Nexus-pipeline scripts (zero callers by design); both save `<date>_<trial>_SL_Realtime.mat`, so Alpha overwrites Realtime's file name; needs ViconNexus + ezc3d (via the C3D wrappers since 2026-10-25). C4 |
 | classes/dataStructs/@adaptationData/removeBiasV2.m | the `adaptationData.m` lines 177-180 are a signature listing, not calls; `getEarlyLateData_v2_.m:82` calls it, itself dead | first statement is `error('... deprecated ...')`, so the rest is unreachable. Corrects the earlier "called from adaptationData.m" note |
 | classes/dataStructs/@adaptationData/removeBiasV3.m | `adaptationData.m:182` signature listing and `:234-235` commented example only | no live caller; V4 is what `removeBias` uses (adaptationData.m:237, plotAvgTimeCourse flag 2 for H-reflex) |
 | fun/parameterCalculation/computeForceParameters_OGFP.m, _OGFP_aligned.m | NOT dead: `calcParameters.m:348` and `:362` | C3 family |
@@ -326,7 +326,16 @@ Evidence: `git grep -w` over tracked .m/.md/.mlx/.txt (excluding doc/ and the fi
 
 | file | evidence | note |
 |---|---|---|
-| classes/Biofeedback/BiofeedbackPerception.m, BiofeedbackSL.m, BiofeedbackSLBF_Percp.m, BiofeedbackSL_c3d.m, BiofeedbackVazE2B.m, SombricTaiChi.m | no reference outside their own files | study-specific session classes (step-length biofeedback / perception / Vazquez 2B / tai chi). Need `cprintf`, `uigetfiles`, `JSONtxt2cell` (fun/misc) and, for SL_c3d, BTK; `editTriallist` uses `eval` on a base-workspace variable named by subjectcode; SL, SLBF_Percp, SL_c3d and VazE2B repeat the same `AnalyzePerformance` structure but differ by about 670-830 lines pre-cleanup (diff vs SL). C4 |
+| classes/Biofeedback/BiofeedbackPerception.m, BiofeedbackSL.m, BiofeedbackSLBF_Percp.m, BiofeedbackSL_c3d.m, BiofeedbackVazE2B.m, SombricTaiChi.m | no reference outside their own files | study-specific session classes (step-length biofeedback / perception / Vazquez 2B / tai chi). Need `cprintf`, `uigetfiles`, `JSONtxt2cell` (fun/misc) and, for SL_c3d, ezc3d (via the C3D wrappers); `editTriallist` uses `eval` on a base-workspace variable named by subjectcode; SL, SLBF_Percp, SL_c3d and VazE2B repeat the same `AnalyzePerformance` structure but differ by about 670-830 lines pre-cleanup (diff vs SL). C4 |
+
+### ezc3d migration (added 2026-10-25)
+
+Evidence: `git grep -nE '\bbtk[A-Z]\w*' -- '*.m' ':!fun/ext/BTK'` over the working tree after the switch. ezc3d is now the only C3D reader. Nothing deleted.
+
+| file | evidence | note |
+|---|---|---|
+| fun/ext/BTK/ (BTK 0.3.0: 102 `.mexa64`, 118 `.m`, Linux binaries only) | no live caller: the only remaining hits are commented-out lines (`errorProofInfo.m:341`, `deprecated/errorProofInfobeta.m:222-223`) and the `which('btkReadAcquisition')` check in `validateC3DReaders` | pending lab deletion; unmodified third-party code, do not edit. Its license is BSD-3-Clause. Needed on the path only to rerun an old commit that still calls `btk*` |
+| testing/c3dReader/validateC3DReaders.m (moved from gui/importc3d/, approved) | zero callers | compares BTK against ezc3d, so it cannot run now (`getC3DReader` errors with `getC3DReader:btkRemoved` for the `'btk'` preference). Superseded by `testing/c3dReader/checkC3DReader.m`; kept, content unchanged |
 
 ### Phase C, C7 (2026-10-20; commit 42626434)
 
