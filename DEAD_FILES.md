@@ -335,7 +335,7 @@ Evidence: `git grep -nE '\bbtk[A-Z]\w*' -- '*.m' ':!fun/ext/BTK'` over the worki
 | file | evidence | note |
 |---|---|---|
 | fun/ext/BTK/ (BTK 0.3.0: 102 `.mexa64`, 118 `.m`, Linux binaries only) | no live caller: the only remaining hits are commented-out lines (`errorProofInfo.m:341`, `deprecated/errorProofInfobeta.m:222-223`) and the `which('btkReadAcquisition')` check in `validateC3DReaders` | pending lab deletion; unmodified third-party code, do not edit. Its license is BSD-3-Clause. Needed on the path only to rerun an old commit that still calls `btk*` |
-| gui/importc3d/validateC3DReaders.m | zero callers | compares BTK against ezc3d, so it cannot run now (`getC3DReader` errors with `getC3DReader:btkRemoved` for the `'btk'` preference). Superseded by `testing/c3dReader/checkC3DReader.m`; the planned move to `testing/` is still pending approval |
+| testing/c3dReader/validateC3DReaders.m (moved from gui/importc3d/, approved) | zero callers | compares BTK against ezc3d, so it cannot run now (`getC3DReader` errors with `getC3DReader:btkRemoved` for the `'btk'` preference). Superseded by `testing/c3dReader/checkC3DReader.m`; kept, content unchanged |
 
 ### Phase C, C7 (2026-10-20; commit 42626434)
 

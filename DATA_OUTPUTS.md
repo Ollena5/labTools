@@ -123,5 +123,5 @@ calls.
 | `computeForceParameters_OGFP`, `computeForceParameters_OGFP_aligned`, `VR_EMG_traces_per_Cond`, `Nim_EMG_traces_per_Cond`, `ReviewEventsGUI` L1050-1054, `GenerateHreflexRecruitmentCurves` L394-414 | Commented-out code; nothing runs |
 | `reconstructAndLabelTrial` (`+dataMotion/deprecated` and `OptimizedReconstructAndLabel`), `fillSmallMarkerGapsSpline`, `fillMarkerGapsPattern`, `processAndFillMarkerGapsTrial` | `shouldSave` documentation only; the Vicon `SaveTrial` call is listed in section 5 |
 | `AddPythonData` L93; the `fopen` reads in `BiofeedbackSL`, `BiofeedbackSLBF_Percp`, `BiofeedbackPerception`, `SombricTaiChi`; `JSONtxt2cell`; `V2P_tester` | `fopen` for reading (each paired with `fclose`) |
-| `fun/ext/BTK/**` (incl. `btkEmulateC3Dserver`), `fun/ext/markerDataCleaning/**` (`naiveDistances`) | Third-party or print-message prose (BTK is untouchable) |
+| `fun/ext/BTK/**` (incl. `btkEmulateC3Dserver`), `fun/ext/markerDataCleaning/**` (`naiveDistances`) | Third-party or print-message prose (BTK is untouchable and no longer called) |
 | `testing/*` fixtures | Reads only; the one write (`ValidateHreflexGuardOnServer`) is in section 5 |

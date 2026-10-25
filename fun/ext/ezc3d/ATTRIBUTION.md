@@ -46,8 +46,8 @@ The Windows binary was tested with MATLAB R2024a against BTK 0.3.0 on
 21 of 22 lab C3D files (the 22nd, 1 GB, was read without a BTK baseline).
 It matches BTK exactly except for the PC2 analog rate (2000 Hz here,
 1999.999992 Hz from BTK). The macOS and Linux binaries are the official ones,
-untested here until `testing/c3dReader/checkC3DReader.m` is run on those
-platforms. MATLAB R2021a was not tested. The Windows binary
+not run here; a labmate reported that ezc3d works on a Mac, and Linux is
+untested. MATLAB R2021a was not tested. The Windows binary
 imports `VCRUNTIME140_1.dll`, which R2024a ships; older MATLAB releases
 may need the current Microsoft Visual C++ Redistributable.
 

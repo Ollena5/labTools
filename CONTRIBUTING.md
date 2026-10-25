@@ -430,8 +430,8 @@ obvious.
 
 ## Third-Party Code
 
-`fun/ext/BTK/` is an unmodified external library. **Do not edit it.**
-Changes will be overwritten when BTK is updated.
+`fun/ext/BTK/` and `fun/ext/ezc3d/` are unmodified external libraries.
+**Do not edit them.** Changes will be overwritten when they are updated.
 
 `fun/ext/pitools/` and `fun/ext/markerDataCleaning/` are treated as
 first-party labTools code even though they originated from external
